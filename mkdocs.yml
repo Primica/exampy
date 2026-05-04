@@ -1,1 +1,60 @@
-site_name: My Docs
+site_name: exampy — JDR & shell
+site_description: Application CLI et shell MySQL pour campagnes, personnages, quêtes et participations.
+site_author: exampy
+
+theme:
+  name: material
+  language: fr
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Passer au thème sombre
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Passer au thème clair
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+
+plugins:
+  - search:
+      lang: fr
+  - mermaid2:
+      version: 11.4.0
+
+markdown_extensions:
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - toc:
+      permalink: true
+
+nav:
+  - Accueil: index.md
+  - Démarrage: demarrage.md
+  - Architecture: architecture.md
+  - Base de données:
+      - Schéma & contraintes: database/schema.md
+      - Modules Python: database/modules.md
+  - Application:
+      - CLI (Cyclopts): application/cli.md
+      - Shell interactif: application/shell.md
+  - Schéma SQL (référence): reference/sql-init.md
+
+extra:
+  generator: false
