@@ -27,7 +27,7 @@ def run_shell(db: MySQLDatabase) -> None:
         history=FileHistory(str(HISTORY_PATH)),
         complete_while_typing=True,
     )
-    print("Shell JDR — Tab pour compléter (commandes + données), help / exit.")
+    print("Shell JDR — Tab pour compléter, help / clear / exit.")
     while True:
         try:
             line = session.prompt()

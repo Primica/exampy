@@ -63,6 +63,7 @@ flowchart TD
 ## Raccourcis
 
 - **`help`** — aide intégrée.
+- **`clear`** — efface l’écran du terminal (sans quitter le shell).
 - **`exit`** / **`quit`** — quitter le shell.
 - **Ctrl+D** — fin de flux (équivalent sortie).
 - **Ctrl+C** — nouvelle invite sans quitter.

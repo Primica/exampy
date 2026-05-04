@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
+
 import mysql.connector
 from tabulate import tabulate
 
@@ -14,6 +18,7 @@ Commandes (ordre métier : campagne → personnage / quête → participation) :
 
   help
   exit | quit
+  clear
 
   Écriture :
   campagne create <nom> <maitre_du_jeu>
@@ -38,6 +43,15 @@ def _usage(msg: str) -> None:
     print(msg)
 
 
+def _clear_screen() -> None:
+    """Efface le terminal (équivalent cls / clear)."""
+    if os.name == "nt":
+        subprocess.run(["cmd", "/c", "cls"], check=False, capture_output=True)
+    else:
+        sys.stdout.write("\x1b[2J\x1b[H")
+        sys.stdout.flush()
+
+
 def _print_table(headers: list[str], rows: list[list[object]]) -> None:
     if not rows:
         print("(aucun résultat)")
@@ -55,6 +69,14 @@ def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -
         return False
     if root == "help":
         print(HELP_TEXT)
+        return True
+
+    if root == "clear":
+        if len(tokens) != 1:
+            _usage("Usage : clear")
+            return True
+        _clear_screen()
+        sys.stdout.flush()
         return True
 
     try:

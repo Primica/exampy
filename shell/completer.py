@@ -13,7 +13,16 @@ from prompt_toolkit.completion import Completer, Completion
 
 from database import JdrRepository
 
-_ROOTS = ("help", "exit", "quit", "campagne", "personnage", "quete", "participation")
+_ROOTS = (
+    "help",
+    "exit",
+    "quit",
+    "clear",
+    "campagne",
+    "personnage",
+    "quete",
+    "participation",
+)
 _SUB_ADD = ("add",)
 _SUB_CAMPAGNE = ("create", "list")
 _SUB_PERSONNAGE = ("add", "list", "quetes")
@@ -87,7 +96,7 @@ class JdrShellCompleter(Completer):
 
         root = words[0].lower()
 
-        if root in ("help", "exit", "quit"):
+        if root in ("help", "exit", "quit", "clear"):
             return
 
         if root == "campagne":
