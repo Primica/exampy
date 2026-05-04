@@ -31,11 +31,17 @@ theme:
 plugins:
   - search:
       lang: fr
+  # Mermaid 9.x : bundle .min.js compatible avec l’init injectée par le plugin
+  # (les versions .mjs / Mermaid 10+ nécessitent mermaid.run() que le plugin n’appelle pas seul.)
   - mermaid2:
-      version: 11.4.0
+      version: 9.4.3
 
 markdown_extensions:
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:mermaid2.fence_mermaid
   - pymdownx.tabbed:
       alternate_style: true
   - admonition
