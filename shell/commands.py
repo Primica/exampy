@@ -1,10 +1,11 @@
-"""Commandes du shell JDR (dispatch vers JdrRepository)."""
+"""Commandes du shell JDR (écriture + listes)."""
 
 from __future__ import annotations
 
 import mysql.connector
+from tabulate import tabulate
 
-from database import JdrRepository
+from database import JdrListRepository, JdrRepository
 
 HELP_TEXT = """
 Commandes (ordre métier : campagne → personnage / quête → participation) :
@@ -14,13 +15,18 @@ Commandes (ordre métier : campagne → personnage / quête → participation) :
   help
   exit | quit
 
+  Écriture :
   campagne create <nom> <maitre_du_jeu>
-
   personnage add <nom> <classe> <niveau> <points_de_vie> <id_campagne>
-
   quete create <titre> <description> <statut> <id_campagne>
-
   participation add <id_personnage> <id_quete>
+
+  Listes :
+  campagne list
+  personnage list <id_campagne>
+  quete list <id_campagne>
+  quete personnages <id_quete>
+  personnage quetes <id_personnage>
 
 Utilisez des guillemets pour les libellés contenant des espaces, par ex. :
   campagne create "Les mines" "Alice"
@@ -32,7 +38,14 @@ def _usage(msg: str) -> None:
     print(msg)
 
 
-def dispatch(repo: JdrRepository, tokens: list[str]) -> bool:
+def _print_table(headers: list[str], rows: list[list[object]]) -> None:
+    if not rows:
+        print("(aucun résultat)")
+        return
+    print(tabulate(rows, headers=headers, tablefmt="github"))
+
+
+def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -> bool:
     """Exécute une commande. Retourne False pour arrêter le shell."""
     if not tokens:
         return True
@@ -45,6 +58,106 @@ def dispatch(repo: JdrRepository, tokens: list[str]) -> bool:
         return True
 
     try:
+        if root == "campagne" and len(tokens) >= 2 and tokens[1].lower() == "list":
+            if len(tokens) != 2:
+                _usage("Usage : campagne list")
+                return True
+            data = lists.list_toutes_campagnes()
+            _print_table(
+                ["id", "nom", "maître du jeu", "création"],
+                [[c.id, c.nom, c.maitre_du_jeu, c.date_creation] for c in data],
+            )
+            return True
+
+        if root == "personnage" and len(tokens) >= 2 and tokens[1].lower() == "list":
+            if len(tokens) != 3:
+                _usage("Usage : personnage list <id_campagne>")
+                return True
+            try:
+                id_c = int(tokens[2])
+            except ValueError:
+                _usage("id_campagne doit être un entier.")
+                return True
+            data = lists.list_personnages_par_campagne(id_c)
+            _print_table(
+                [
+                    "id",
+                    "nom",
+                    "classe",
+                    "niveau",
+                    "PV",
+                    "id_campagne",
+                    "campagne",
+                ],
+                [
+                    [
+                        p.id,
+                        p.nom,
+                        p.classe,
+                        p.niveau,
+                        p.points_de_vie,
+                        p.id_campagne,
+                        p.nom_campagne,
+                    ]
+                    for p in data
+                ],
+            )
+            return True
+
+        if root == "personnage" and len(tokens) >= 2 and tokens[1].lower() == "quetes":
+            if len(tokens) != 3:
+                _usage("Usage : personnage quetes <id_personnage>")
+                return True
+            try:
+                id_p = int(tokens[2])
+            except ValueError:
+                _usage("id_personnage doit être un entier.")
+                return True
+            data = lists.list_quetes_par_personnage(id_p)
+            _print_table(
+                ["id", "titre", "statut", "id_campagne"],
+                [[q.id, q.titre, q.statut, q.id_campagne] for q in data],
+            )
+            return True
+
+        if root == "quete" and len(tokens) >= 2 and tokens[1].lower() == "list":
+            if len(tokens) != 3:
+                _usage("Usage : quete list <id_campagne>")
+                return True
+            try:
+                id_c = int(tokens[2])
+            except ValueError:
+                _usage("id_campagne doit être un entier.")
+                return True
+            data = lists.list_quetes_par_campagne(id_c)
+            _print_table(
+                ["id", "titre", "description", "statut", "id_campagne"],
+                [
+                    [q.id, q.titre, q.description, q.statut, q.id_campagne]
+                    for q in data
+                ],
+            )
+            return True
+
+        if root == "quete" and len(tokens) >= 2 and tokens[1].lower() == "personnages":
+            if len(tokens) != 3:
+                _usage("Usage : quete personnages <id_quete>")
+                return True
+            try:
+                id_q = int(tokens[2])
+            except ValueError:
+                _usage("id_quete doit être un entier.")
+                return True
+            data = lists.list_personnages_par_quete(id_q)
+            _print_table(
+                ["id", "nom", "classe", "niveau", "PV"],
+                [
+                    [p.id, p.nom, p.classe, p.niveau, p.points_de_vie]
+                    for p in data
+                ],
+            )
+            return True
+
         if root == "campagne" and len(tokens) >= 2 and tokens[1].lower() == "create":
             if len(tokens) != 4:
                 _usage("Usage : campagne create <nom> <maitre_du_jeu>")

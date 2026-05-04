@@ -1,18 +1,9 @@
 from __future__ import annotations
 
-from typing import Any, cast
-
 import mysql.connector
 
-from .mysql_db import MySQLDatabase, MySQLConnectionLike
-
-
-def _sql_int(cell: object) -> int:
-    return int(cast(Any, cell))
-
-
-def _row_tuple(row: object) -> tuple[Any, ...]:
-    return cast(tuple[Any, ...], row)
+from .mysql_db import MySQLConnectionLike, MySQLDatabase
+from .sql_utils import row_tuple, sql_int
 
 
 class JdrRepository:
@@ -38,8 +29,8 @@ class JdrRepository:
             rows = cur.fetchall()
             out: list[tuple[int, str, str]] = []
             for raw in rows:
-                t = _row_tuple(raw)
-                out.append((_sql_int(t[0]), str(t[1]), str(t[2])))
+                t = row_tuple(raw)
+                out.append((sql_int(t[0]), str(t[1]), str(t[2])))
             return out
         finally:
             cur.close()
@@ -53,7 +44,7 @@ class JdrRepository:
                 "SELECT DISTINCT nom FROM campagne WHERE nom LIKE %s ORDER BY nom LIMIT 50",
                 (f"{prefix}%",),
             )
-            return [str(_row_tuple(r)[0]) for r in cur.fetchall()]
+            return [str(row_tuple(r)[0]) for r in cur.fetchall()]
         finally:
             cur.close()
             conn.close()
@@ -69,7 +60,7 @@ class JdrRepository:
                 """,
                 (f"{prefix}%",),
             )
-            return [str(_row_tuple(r)[0]) for r in cur.fetchall()]
+            return [str(row_tuple(r)[0]) for r in cur.fetchall()]
         finally:
             cur.close()
             conn.close()
@@ -85,7 +76,7 @@ class JdrRepository:
                 """,
                 (f"{prefix}%",),
             )
-            return [str(_row_tuple(r)[0]) for r in cur.fetchall()]
+            return [str(row_tuple(r)[0]) for r in cur.fetchall()]
         finally:
             cur.close()
             conn.close()
@@ -101,7 +92,7 @@ class JdrRepository:
                 """,
                 (f"{prefix}%",),
             )
-            return [str(_row_tuple(r)[0]) for r in cur.fetchall()]
+            return [str(row_tuple(r)[0]) for r in cur.fetchall()]
         finally:
             cur.close()
             conn.close()
@@ -117,7 +108,7 @@ class JdrRepository:
                 """,
                 (f"{prefix}%",),
             )
-            return [str(_row_tuple(r)[0]) for r in cur.fetchall()]
+            return [str(row_tuple(r)[0]) for r in cur.fetchall()]
         finally:
             cur.close()
             conn.close()
@@ -133,7 +124,7 @@ class JdrRepository:
                 """,
                 (f"{prefix}%",),
             )
-            return [str(_row_tuple(r)[0]) for r in cur.fetchall()]
+            return [str(row_tuple(r)[0]) for r in cur.fetchall()]
         finally:
             cur.close()
             conn.close()
@@ -149,7 +140,7 @@ class JdrRepository:
                 """,
                 (f"{prefix}%",),
             )
-            return [str(_row_tuple(r)[0]) for r in cur.fetchall()]
+            return [str(row_tuple(r)[0]) for r in cur.fetchall()]
         finally:
             cur.close()
             conn.close()
@@ -171,9 +162,11 @@ class JdrRepository:
                 cur.execute(
                     "SELECT id, nom FROM personnage ORDER BY id LIMIT 100"
                 )
-            return [
-                (_sql_int((t := _row_tuple(r))[0]), str(t[1])) for r in cur.fetchall()
-            ]
+            out: list[tuple[int, str]] = []
+            for raw in cur.fetchall():
+                t = row_tuple(raw)
+                out.append((sql_int(t[0]), str(t[1])))
+            return out
         finally:
             cur.close()
             conn.close()
@@ -192,9 +185,11 @@ class JdrRepository:
                 )
             else:
                 cur.execute("SELECT id, titre FROM quete ORDER BY id LIMIT 100")
-            return [
-                (_sql_int((t := _row_tuple(r))[0]), str(t[1])) for r in cur.fetchall()
-            ]
+            out: list[tuple[int, str]] = []
+            for raw in cur.fetchall():
+                t = row_tuple(raw)
+                out.append((sql_int(t[0]), str(t[1])))
+            return out
         finally:
             cur.close()
             conn.close()

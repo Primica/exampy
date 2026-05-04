@@ -14,8 +14,10 @@ from prompt_toolkit.completion import Completer, Completion
 from database import JdrRepository
 
 _ROOTS = ("help", "exit", "quit", "campagne", "personnage", "quete", "participation")
-_SUB_CREATE = ("create",)
 _SUB_ADD = ("add",)
+_SUB_CAMPAGNE = ("create", "list")
+_SUB_PERSONNAGE = ("add", "list", "quetes")
+_SUB_QUETE = ("create", "list", "personnages")
 
 
 def split_prompt(text_before_cursor: str) -> tuple[list[str], str]:
@@ -107,9 +109,12 @@ class JdrShellCompleter(Completer):
         self, words: list[str], prefix: str, ends_ws: bool
     ) -> Iterable[Completion]:
         if len(words) == 1:
-            yield from _yield_filtered(_SUB_CREATE, prefix)
+            yield from _yield_filtered(_SUB_CAMPAGNE, prefix)
             return
-        if words[1].lower() != "create":
+        sub = words[1].lower()
+        if sub == "list":
+            return
+        if sub != "create":
             return
         if len(words) == 2:
             try:
@@ -130,9 +135,34 @@ class JdrShellCompleter(Completer):
         self, words: list[str], prefix: str, ends_ws: bool
     ) -> Iterable[Completion]:
         if len(words) == 1:
-            yield from _yield_filtered(_SUB_ADD, prefix)
+            yield from _yield_filtered(_SUB_PERSONNAGE, prefix)
             return
-        if words[1].lower() != "add":
+        sub = words[1].lower()
+        if sub == "list":
+            if (len(words) == 2 and ends_ws) or (len(words) == 2 and prefix):
+                for cid, nom, mj in self._campagnes_cached():
+                    sid = str(cid)
+                    if not prefix or sid.startswith(prefix):
+                        yield Completion(
+                            sid,
+                            start_position=-len(prefix),
+                            display_meta=f"{nom} — {mj}",
+                        )
+            return
+        if sub == "quetes":
+            if (len(words) == 2 and ends_ws) or (len(words) == 2 and prefix):
+                try:
+                    persos = self._repo.list_personnages(prefix)
+                except Exception:
+                    persos = []
+                for pid, nom in persos:
+                    yield Completion(
+                        str(pid),
+                        start_position=-len(prefix),
+                        display_meta=nom,
+                    )
+            return
+        if sub != "add":
             return
         if len(words) == 2:
             try:
@@ -174,9 +204,34 @@ class JdrShellCompleter(Completer):
         self, words: list[str], prefix: str, ends_ws: bool
     ) -> Iterable[Completion]:
         if len(words) == 1:
-            yield from _yield_filtered(_SUB_CREATE, prefix)
+            yield from _yield_filtered(_SUB_QUETE, prefix)
             return
-        if words[1].lower() != "create":
+        sub = words[1].lower()
+        if sub == "list":
+            if (len(words) == 2 and ends_ws) or (len(words) == 2 and prefix):
+                for cid, nom, mj in self._campagnes_cached():
+                    sid = str(cid)
+                    if not prefix or sid.startswith(prefix):
+                        yield Completion(
+                            sid,
+                            start_position=-len(prefix),
+                            display_meta=f"{nom} — {mj}",
+                        )
+            return
+        if sub == "personnages":
+            if (len(words) == 2 and ends_ws) or (len(words) == 2 and prefix):
+                try:
+                    quetes = self._repo.list_quetes(prefix)
+                except Exception:
+                    quetes = []
+                for qid, titre in quetes:
+                    yield Completion(
+                        str(qid),
+                        start_position=-len(prefix),
+                        display_meta=titre,
+                    )
+            return
+        if sub != "create":
             return
         if len(words) == 2:
             try:

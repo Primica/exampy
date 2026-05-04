@@ -7,7 +7,7 @@ from pathlib import Path
 from prompt_toolkit import PromptSession
 from prompt_toolkit.history import FileHistory
 
-from database import JdrRepository, MySQLDatabase
+from database import JdrListRepository, JdrRepository, MySQLDatabase
 
 from .commands import dispatch
 from .completer import JdrShellCompleter
@@ -19,6 +19,7 @@ HISTORY_PATH = Path.home() / ".cache" / "exampy" / "shell_history"
 
 def run_shell(db: MySQLDatabase) -> None:
     repo = JdrRepository(db)
+    list_repo = JdrListRepository(db)
     HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
     session = PromptSession(
         message=PROMPT,
@@ -38,5 +39,5 @@ def run_shell(db: MySQLDatabase) -> None:
         except ValueError as err:
             print(err)
             continue
-        if not dispatch(repo, tokens):
+        if not dispatch(repo, list_repo, tokens):
             break
