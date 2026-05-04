@@ -1,9 +1,12 @@
-from typing import Optional
+from typing import Any, Optional, TypeAlias, cast
 
 import mysql.connector
-from mysql.connector import MySQLConnection
+from mysql.connector.abstracts import MySQLConnectionAbstract
+from mysql.connector.pooling import PooledMySQLConnection
 
 from .config import DatabaseSettings
+
+MySQLConnectionLike: TypeAlias = PooledMySQLConnection | MySQLConnectionAbstract
 
 
 class MySQLDatabase:
@@ -12,7 +15,7 @@ class MySQLDatabase:
     def __init__(self, settings: DatabaseSettings):
         self._settings = settings
 
-    def connect(self, *, quiet: bool = False) -> Optional[MySQLConnection]:
+    def connect(self, *, quiet: bool = False) -> Optional[MySQLConnectionLike]:
         try:
             connection = mysql.connector.connect(
                 host=self._settings.host,
@@ -35,6 +38,7 @@ class MySQLDatabase:
             cursor.execute("SELECT VERSION()")
             version = cursor.fetchone()
             if version is not None:
-                print(f"MySQL Server Version: {version[0]}")
+                row = cast(tuple[Any, ...], version)
+                print(f"MySQL Server Version: {row[0]}")
             cursor.close()
             connection.close()

@@ -1,25 +1,36 @@
-"""Boucle REPL du shell JDR.
-
-Pour historique et complétion, on pourra remplacer ``input()`` par prompt_toolkit.
-"""
+"""Boucle REPL du shell JDR (prompt_toolkit : historique + complétion)."""
 
 from __future__ import annotations
+
+from pathlib import Path
+
+from prompt_toolkit import PromptSession
+from prompt_toolkit.history import FileHistory
 
 from database import JdrRepository, MySQLDatabase
 
 from .commands import dispatch
+from .completer import JdrShellCompleter
 from .parser import parse_line
 
 PROMPT = "jdr> "
+HISTORY_PATH = Path.home() / ".cache" / "exampy" / "shell_history"
 
 
 def run_shell(db: MySQLDatabase) -> None:
     repo = JdrRepository(db)
-    print("Shell JDR — tapez help, exit ou quit.")
+    HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+    session = PromptSession(
+        message=PROMPT,
+        completer=JdrShellCompleter(repo),
+        history=FileHistory(str(HISTORY_PATH)),
+        complete_while_typing=True,
+    )
+    print("Shell JDR — Tab pour compléter (commandes + données), help / exit.")
     while True:
         try:
-            line = input(PROMPT)
-        except EOFError:
+            line = session.prompt()
+        except (EOFError, KeyboardInterrupt):
             print()
             break
         try:

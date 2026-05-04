@@ -9,6 +9,8 @@ from database import JdrRepository
 HELP_TEXT = """
 Commandes (ordre métier : campagne → personnage / quête → participation) :
 
+  Tab : complétion (sous-commandes, libellés et ids issus de la base).
+
   help
   exit | quit
 
