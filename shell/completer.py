@@ -1,7 +1,7 @@
-"""Complétion contextuelle (commandes + données MySQL).
+"""Context-aware completion (commands + MySQL-backed values).
 
-Découpe la ligne sur les espaces (sans interpréter shlex) : même limite que
-pour une saisie sans guillemets ; avec guillemets, utiliser parse_line à l'exécution.
+Splits on spaces (no shlex): same limitation as unquoted typing; use quotes and
+parse_line at execution time for phrases with spaces.
 """
 
 from __future__ import annotations
@@ -18,19 +18,19 @@ _ROOTS = (
     "exit",
     "quit",
     "clear",
-    "campagne",
-    "personnage",
-    "quete",
+    "campaign",
+    "character",
+    "quest",
     "participation",
 )
 _SUB_ADD = ("add",)
-_SUB_CAMPAGNE = ("create", "list")
-_SUB_PERSONNAGE = ("add", "list", "quetes")
-_SUB_QUETE = ("create", "list", "personnages")
+_SUB_CAMPAIGN = ("create", "list")
+_SUB_CHARACTER = ("add", "list", "quests")
+_SUB_QUEST = ("create", "list", "characters")
 
 
 def split_prompt(text_before_cursor: str) -> tuple[list[str], str]:
-    """Mots complets avant le fragment courant, et fragment à compléter."""
+    """Completed words before the cursor and the fragment being completed."""
     if not text_before_cursor:
         return [], ""
     ends_ws = text_before_cursor[-1].isspace()
@@ -99,14 +99,14 @@ class JdrShellCompleter(Completer):
         if root in ("help", "exit", "quit", "clear"):
             return
 
-        if root == "campagne":
-            yield from self._complete_campagne(words, prefix, ends_ws)
+        if root == "campaign":
+            yield from self._complete_campaign(words, prefix, ends_ws)
             return
-        if root == "personnage":
-            yield from self._complete_personnage(words, prefix, ends_ws)
+        if root == "character":
+            yield from self._complete_character(words, prefix, ends_ws)
             return
-        if root == "quete":
-            yield from self._complete_quete(words, prefix, ends_ws)
+        if root == "quest":
+            yield from self._complete_quest(words, prefix, ends_ws)
             return
         if root == "participation":
             yield from self._complete_participation(words, prefix, ends_ws)
@@ -114,11 +114,11 @@ class JdrShellCompleter(Completer):
 
         yield from _yield_filtered(_ROOTS, prefix)
 
-    def _complete_campagne(
+    def _complete_campaign(
         self, words: list[str], prefix: str, ends_ws: bool
     ) -> Iterable[Completion]:
         if len(words) == 1:
-            yield from _yield_filtered(_SUB_CAMPAGNE, prefix)
+            yield from _yield_filtered(_SUB_CAMPAIGN, prefix)
             return
         sub = words[1].lower()
         if sub == "list":
@@ -130,21 +130,21 @@ class JdrShellCompleter(Completer):
                 noms = self._repo.list_distinct_noms_campagne(prefix)
             except Exception:
                 noms = []
-            yield from _yield_filtered(noms, prefix, meta=lambda n: "nom (existant)")
+            yield from _yield_filtered(noms, prefix, meta=lambda n: "name (existing)")
             return
         if len(words) == 3:
             try:
                 mjs = self._repo.list_distinct_mj(prefix)
             except Exception:
                 mjs = []
-            yield from _yield_filtered(mjs, prefix, meta=lambda m: "maître du jeu")
+            yield from _yield_filtered(mjs, prefix, meta=lambda m: "dungeon master")
             return
 
-    def _complete_personnage(
+    def _complete_character(
         self, words: list[str], prefix: str, ends_ws: bool
     ) -> Iterable[Completion]:
         if len(words) == 1:
-            yield from _yield_filtered(_SUB_PERSONNAGE, prefix)
+            yield from _yield_filtered(_SUB_CHARACTER, prefix)
             return
         sub = words[1].lower()
         if sub == "list":
@@ -158,7 +158,7 @@ class JdrShellCompleter(Completer):
                             display_meta=f"{nom} — {mj}",
                         )
             return
-        if sub == "quetes":
+        if sub == "quests":
             if (len(words) == 2 and ends_ws) or (len(words) == 2 and prefix):
                 try:
                     persos = self._repo.list_personnages(prefix)
@@ -178,26 +178,26 @@ class JdrShellCompleter(Completer):
                 noms = self._repo.list_distinct_noms_personnage(prefix)
             except Exception:
                 noms = []
-            yield from _yield_filtered(noms, prefix, meta=lambda n: "nom")
+            yield from _yield_filtered(noms, prefix, meta=lambda n: "name")
             return
         if len(words) == 3:
             try:
                 classes = self._repo.list_distinct_classes(prefix)
             except Exception:
                 classes = []
-            yield from _yield_filtered(classes, prefix, meta=lambda c: "classe")
+            yield from _yield_filtered(classes, prefix, meta=lambda c: "class")
             return
         if len(words) == 4:
             for n in range(1, 21):
                 s = str(n)
                 if not prefix or s.startswith(prefix):
-                    yield Completion(s, start_position=-len(prefix), display_meta="niveau")
+                    yield Completion(s, start_position=-len(prefix), display_meta="level")
             return
         if len(words) == 5:
             for pv in (5, 10, 15, 20, 25, 30, 40, 50):
                 s = str(pv)
                 if not prefix or s.startswith(prefix):
-                    yield Completion(s, start_position=-len(prefix), display_meta="PV")
+                    yield Completion(s, start_position=-len(prefix), display_meta="HP")
             return
         if (len(words) == 6 and ends_ws) or (len(words) == 6 and prefix):
             for cid, nom, mj in self._campagnes_cached():
@@ -209,11 +209,11 @@ class JdrShellCompleter(Completer):
                         display_meta=f"{nom} — {mj}",
                     )
 
-    def _complete_quete(
+    def _complete_quest(
         self, words: list[str], prefix: str, ends_ws: bool
     ) -> Iterable[Completion]:
         if len(words) == 1:
-            yield from _yield_filtered(_SUB_QUETE, prefix)
+            yield from _yield_filtered(_SUB_QUEST, prefix)
             return
         sub = words[1].lower()
         if sub == "list":
@@ -227,7 +227,7 @@ class JdrShellCompleter(Completer):
                             display_meta=f"{nom} — {mj}",
                         )
             return
-        if sub == "personnages":
+        if sub == "characters":
             if (len(words) == 2 and ends_ws) or (len(words) == 2 and prefix):
                 try:
                     quetes = self._repo.list_quetes(prefix)
@@ -247,7 +247,7 @@ class JdrShellCompleter(Completer):
                 titres = self._repo.list_distinct_titres_quete(prefix)
             except Exception:
                 titres = []
-            yield from _yield_filtered(titres, prefix, meta=lambda t: "titre")
+            yield from _yield_filtered(titres, prefix, meta=lambda t: "title")
             return
         if len(words) == 3:
             try:
@@ -263,7 +263,7 @@ class JdrShellCompleter(Completer):
                 stats = []
             defaults = ("ouverte", "en_cours", "terminee", "echec")
             merged = list(dict.fromkeys([*stats, *defaults]))
-            yield from _yield_filtered(merged, prefix, meta=lambda s: "statut")
+            yield from _yield_filtered(merged, prefix, meta=lambda s: "status")
             return
         if (len(words) == 5 and ends_ws) or (len(words) == 5 and prefix):
             for cid, nom, mj in self._campagnes_cached():

@@ -1,4 +1,4 @@
-"""Point d'entrée CLI (Cyclopts)."""
+"""CLI entry point (Cyclopts)."""
 
 from __future__ import annotations
 
@@ -9,7 +9,10 @@ from cyclopts import App
 from database import DatabaseSettings, MySQLDatabase
 from shell import run_shell
 
-app = App(name="exampy", help="Outil JDR : shell interactif et tests de base de données.")
+app = App(
+    name="exampy",
+    help="RPG helper: interactive shell and database connectivity checks.",
+)
 
 
 def _make_db() -> MySQLDatabase:
@@ -20,7 +23,7 @@ def _run_shell_session() -> None:
     db = _make_db()
     conn = db.connect(quiet=True)
     if conn is None:
-        print("Connexion MySQL impossible. Vérifiez le .env et le serveur.")
+        print("Could not connect to MySQL. Check .env and that the server is running.")
         return
     conn.close()
     run_shell(db)
@@ -28,19 +31,19 @@ def _run_shell_session() -> None:
 
 @app.default
 def default_cmd() -> None:
-    """Démarre le shell interactif (comportement sans sous-commande)."""
+    """Start the interactive shell (default when no subcommand is given)."""
     _run_shell_session()
 
 
 @app.command
 def shell() -> None:
-    """Démarre le shell interactif JDR."""
+    """Start the interactive JDR shell."""
     _run_shell_session()
 
 
 @app.command
 def db_ping() -> None:
-    """Affiche la version du serveur MySQL (test de connexion)."""
+    """Print the MySQL server version (connection test)."""
     db = _make_db()
     db.get_db_status()
 

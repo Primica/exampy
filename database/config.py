@@ -8,7 +8,7 @@ dotenv.load_dotenv()
 def getenv_required(key: str) -> str:
     value = os.getenv(key)
     if value is None:
-        raise RuntimeError(f"Variable d'environnement requise manquante : {key}")
+        raise RuntimeError(f"Missing required environment variable: {key}")
     return value
 
 

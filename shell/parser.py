@@ -1,4 +1,4 @@
-"""Découpage des lignes saisies (guillemets shell via shlex)."""
+"""Parse input lines (shell quoting via shlex)."""
 
 from __future__ import annotations
 
@@ -12,4 +12,4 @@ def parse_line(line: str) -> list[str]:
     try:
         return shlex.split(s)
     except ValueError as exc:
-        raise ValueError(f"Guillemets ou échappement invalides : {exc}") from exc
+        raise ValueError(f"Invalid quotes or escape sequence: {exc}") from exc

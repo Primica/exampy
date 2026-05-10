@@ -10,7 +10,7 @@ MySQLConnectionLike: TypeAlias = PooledMySQLConnection | MySQLConnectionAbstract
 
 
 class MySQLDatabase:
-    """Connexion MySQL et opérations de base (version serveur, etc.)."""
+    """MySQL connection and basic operations (server version, etc.)."""
 
     def __init__(self, settings: DatabaseSettings):
         self._settings = settings

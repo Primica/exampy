@@ -1,4 +1,4 @@
-"""Boucle REPL du shell JDR (prompt_toolkit : historique + complétion)."""
+"""JDR shell REPL loop (prompt_toolkit: history + completion)."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ def run_shell(db: MySQLDatabase) -> None:
         history=FileHistory(str(HISTORY_PATH)),
         complete_while_typing=True,
     )
-    print("Shell JDR — Tab pour compléter, help / clear / exit.")
+    print("JDR shell — Tab completes commands; help / clear / exit.")
     while True:
         try:
             line = session.prompt()

@@ -1,4 +1,4 @@
-"""Commandes du shell JDR (écriture + listes)."""
+"""Interactive shell commands (writes + lists)."""
 
 from __future__ import annotations
 
@@ -12,30 +12,30 @@ from tabulate import tabulate
 from database import JdrListRepository, JdrRepository
 
 HELP_TEXT = """
-Commandes (ordre métier : campagne → personnage / quête → participation) :
+Commands (domain order: campaign → character / quest → participation):
 
-  Tab : complétion (sous-commandes, libellés et ids issus de la base).
+  Tab: completion (subcommands, labels and ids from the database).
 
   help
   exit | quit
   clear
 
-  Écriture :
-  campagne create <nom> <maitre_du_jeu>
-  personnage add <nom> <classe> <niveau> <points_de_vie> <id_campagne>
-  quete create <titre> <description> <statut> <id_campagne>
-  participation add <id_personnage> <id_quete>
+  Writes:
+  campaign create <name> <dungeon_master>
+  character add <name> <class> <level> <hit_points> <campaign_id>
+  quest create <title> <description> <status> <campaign_id>
+  participation add <character_id> <quest_id>
 
-  Listes :
-  campagne list
-  personnage list <id_campagne>
-  quete list <id_campagne>
-  quete personnages <id_quete>
-  personnage quetes <id_personnage>
+  Lists:
+  campaign list
+  character list <campaign_id>
+  quest list <campaign_id>
+  quest characters <quest_id>
+  character quests <character_id>
 
-Utilisez des guillemets pour les libellés contenant des espaces, par ex. :
-  campagne create "Les mines" "Alice"
-  quete create "Première quête" "Aller au nord." ouverte 1
+Use quotes for values that contain spaces, e.g.:
+  campaign create "The Mines" "Alice"
+  quest create "First quest" "Go north." open 1
 """.strip()
 
 
@@ -43,8 +43,29 @@ def _usage(msg: str) -> None:
     print(msg)
 
 
+def _prompt_line(label: str) -> str:
+    return input(f"{label}: ").strip()
+
+
+def _prompt_non_empty(label: str) -> str:
+    while True:
+        value = _prompt_line(label)
+        if value:
+            return value
+        print("(Required value cannot be empty.)")
+
+
+def _prompt_int(label: str) -> int:
+    while True:
+        raw = _prompt_line(label)
+        try:
+            return int(raw)
+        except ValueError:
+            print("Value must be an integer.")
+
+
 def _clear_screen() -> None:
-    """Efface le terminal (équivalent cls / clear)."""
+    """Clear the terminal (cls / clear)."""
     if os.name == "nt":
         subprocess.run(["cmd", "/c", "cls"], check=False, capture_output=True)
     else:
@@ -54,13 +75,121 @@ def _clear_screen() -> None:
 
 def _print_table(headers: list[str], rows: list[list[object]]) -> None:
     if not rows:
-        print("(aucun résultat)")
+        print("(no rows)")
         return
     print(tabulate(rows, headers=headers, tablefmt="github"))
 
 
+def _ensure_campaign_create(tokens: list[str]) -> list[str] | None:
+    """Expect: campaign create <name> <dungeon_master>."""
+    t = list(tokens)
+    if len(t) > 4:
+        _usage("Usage: campaign create <name> <dungeon_master>")
+        return None
+    while len(t) < 4:
+        if len(t) <= 2:
+            t.append(_prompt_non_empty("Campaign name"))
+        elif len(t) == 3:
+            t.append(_prompt_non_empty("Dungeon master"))
+    return t
+
+
+def _ensure_character_add(tokens: list[str]) -> list[str] | None:
+    """Expect: character add <name> <class> <level> <hit_points> <campaign_id>."""
+    t = list(tokens)
+    if len(t) > 7:
+        _usage(
+            "Usage: character add <name> <class> <level> <hit_points> <campaign_id>"
+        )
+        return None
+    while len(t) < 7:
+        if len(t) <= 2:
+            t.append(_prompt_non_empty("Character name"))
+        elif len(t) == 3:
+            t.append(_prompt_non_empty("Class"))
+        elif len(t) == 4:
+            t.append(str(_prompt_int("Level")))
+        elif len(t) == 5:
+            t.append(str(_prompt_int("Hit points")))
+        elif len(t) == 6:
+            t.append(str(_prompt_int("Campaign id")))
+    return t
+
+
+def _ensure_quest_create(tokens: list[str]) -> list[str] | None:
+    """Expect: quest create <title> <description> <status> <campaign_id>."""
+    t = list(tokens)
+    if len(t) > 6:
+        _usage("Usage: quest create <title> <description> <status> <campaign_id>")
+        return None
+    while len(t) < 6:
+        if len(t) <= 2:
+            t.append(_prompt_non_empty("Quest title"))
+        elif len(t) == 3:
+            t.append(_prompt_non_empty("Description"))
+        elif len(t) == 4:
+            t.append(_prompt_non_empty("Status"))
+        elif len(t) == 5:
+            t.append(str(_prompt_int("Campaign id")))
+    return t
+
+
+def _ensure_participation_add(tokens: list[str]) -> list[str] | None:
+    """Expect: participation add <character_id> <quest_id>."""
+    t = list(tokens)
+    if len(t) > 4:
+        _usage("Usage: participation add <character_id> <quest_id>")
+        return None
+    while len(t) < 4:
+        if len(t) <= 2:
+            t.append(str(_prompt_int("Character id")))
+        elif len(t) == 3:
+            t.append(str(_prompt_int("Quest id")))
+    return t
+
+
+def _ensure_character_list(tokens: list[str]) -> list[str] | None:
+    t = list(tokens)
+    if len(t) > 3:
+        _usage("Usage: character list <campaign_id>")
+        return None
+    while len(t) < 3:
+        t.append(str(_prompt_int("Campaign id")))
+    return t
+
+
+def _ensure_quest_list(tokens: list[str]) -> list[str] | None:
+    t = list(tokens)
+    if len(t) > 3:
+        _usage("Usage: quest list <campaign_id>")
+        return None
+    while len(t) < 3:
+        t.append(str(_prompt_int("Campaign id")))
+    return t
+
+
+def _ensure_character_quests(tokens: list[str]) -> list[str] | None:
+    t = list(tokens)
+    if len(t) > 3:
+        _usage("Usage: character quests <character_id>")
+        return None
+    while len(t) < 3:
+        t.append(str(_prompt_int("Character id")))
+    return t
+
+
+def _ensure_quest_characters(tokens: list[str]) -> list[str] | None:
+    t = list(tokens)
+    if len(t) > 3:
+        _usage("Usage: quest characters <quest_id>")
+        return None
+    while len(t) < 3:
+        t.append(str(_prompt_int("Quest id")))
+    return t
+
+
 def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -> bool:
-    """Exécute une commande. Retourne False pour arrêter le shell."""
+    """Run one command. Returns False to stop the shell."""
     if not tokens:
         return True
 
@@ -73,43 +202,43 @@ def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -
 
     if root == "clear":
         if len(tokens) != 1:
-            _usage("Usage : clear")
+            _usage("Usage: clear")
             return True
         _clear_screen()
         sys.stdout.flush()
         return True
 
     try:
-        if root == "campagne" and len(tokens) >= 2 and tokens[1].lower() == "list":
+        if root == "campaign" and len(tokens) >= 2 and tokens[1].lower() == "list":
             if len(tokens) != 2:
-                _usage("Usage : campagne list")
+                _usage("Usage: campaign list")
                 return True
             data = lists.list_toutes_campagnes()
             _print_table(
-                ["id", "nom", "maître du jeu", "création"],
+                ["id", "name", "dungeon_master", "created"],
                 [[c.id, c.nom, c.maitre_du_jeu, c.date_creation] for c in data],
             )
             return True
 
-        if root == "personnage" and len(tokens) >= 2 and tokens[1].lower() == "list":
-            if len(tokens) != 3:
-                _usage("Usage : personnage list <id_campagne>")
+        if root == "character" and len(tokens) >= 2 and tokens[1].lower() == "list":
+            filled = _ensure_character_list(tokens)
+            if filled is None:
                 return True
             try:
-                id_c = int(tokens[2])
+                id_c = int(filled[2])
             except ValueError:
-                _usage("id_campagne doit être un entier.")
+                _usage("campaign_id must be an integer.")
                 return True
             data = lists.list_personnages_par_campagne(id_c)
             _print_table(
                 [
                     "id",
-                    "nom",
-                    "classe",
-                    "niveau",
-                    "PV",
-                    "id_campagne",
-                    "campagne",
+                    "name",
+                    "class",
+                    "level",
+                    "HP",
+                    "campaign_id",
+                    "campaign",
                 ],
                 [
                     [
@@ -126,34 +255,34 @@ def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -
             )
             return True
 
-        if root == "personnage" and len(tokens) >= 2 and tokens[1].lower() == "quetes":
-            if len(tokens) != 3:
-                _usage("Usage : personnage quetes <id_personnage>")
+        if root == "character" and len(tokens) >= 2 and tokens[1].lower() == "quests":
+            filled = _ensure_character_quests(tokens)
+            if filled is None:
                 return True
             try:
-                id_p = int(tokens[2])
+                id_p = int(filled[2])
             except ValueError:
-                _usage("id_personnage doit être un entier.")
+                _usage("character_id must be an integer.")
                 return True
             data = lists.list_quetes_par_personnage(id_p)
             _print_table(
-                ["id", "titre", "statut", "id_campagne"],
+                ["id", "title", "status", "campaign_id"],
                 [[q.id, q.titre, q.statut, q.id_campagne] for q in data],
             )
             return True
 
-        if root == "quete" and len(tokens) >= 2 and tokens[1].lower() == "list":
-            if len(tokens) != 3:
-                _usage("Usage : quete list <id_campagne>")
+        if root == "quest" and len(tokens) >= 2 and tokens[1].lower() == "list":
+            filled = _ensure_quest_list(tokens)
+            if filled is None:
                 return True
             try:
-                id_c = int(tokens[2])
+                id_c = int(filled[2])
             except ValueError:
-                _usage("id_campagne doit être un entier.")
+                _usage("campaign_id must be an integer.")
                 return True
             data = lists.list_quetes_par_campagne(id_c)
             _print_table(
-                ["id", "titre", "description", "statut", "id_campagne"],
+                ["id", "title", "description", "status", "campaign_id"],
                 [
                     [q.id, q.titre, q.description, q.statut, q.id_campagne]
                     for q in data
@@ -161,18 +290,18 @@ def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -
             )
             return True
 
-        if root == "quete" and len(tokens) >= 2 and tokens[1].lower() == "personnages":
-            if len(tokens) != 3:
-                _usage("Usage : quete personnages <id_quete>")
+        if root == "quest" and len(tokens) >= 2 and tokens[1].lower() == "characters":
+            filled = _ensure_quest_characters(tokens)
+            if filled is None:
                 return True
             try:
-                id_q = int(tokens[2])
+                id_q = int(filled[2])
             except ValueError:
-                _usage("id_quete doit être un entier.")
+                _usage("quest_id must be an integer.")
                 return True
             data = lists.list_personnages_par_quete(id_q)
             _print_table(
-                ["id", "nom", "classe", "niveau", "PV"],
+                ["id", "name", "class", "level", "HP"],
                 [
                     [p.id, p.nom, p.classe, p.niveau, p.points_de_vie]
                     for p in data
@@ -180,70 +309,66 @@ def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -
             )
             return True
 
-        if root == "campagne" and len(tokens) >= 2 and tokens[1].lower() == "create":
-            if len(tokens) != 4:
-                _usage("Usage : campagne create <nom> <maitre_du_jeu>")
+        if root == "campaign" and len(tokens) >= 2 and tokens[1].lower() == "create":
+            filled = _ensure_campaign_create(tokens)
+            if filled is None:
                 return True
-            _, _, nom, mj = tokens
+            _, _, nom, mj = filled
             cid = repo.create_campagne(nom, mj)
-            print(f"Campagne créée, id = {cid}.")
+            print(f"Campaign created, id = {cid}.")
             return True
 
-        if root == "personnage" and len(tokens) >= 2 and tokens[1].lower() == "add":
-            if len(tokens) != 7:
-                _usage(
-                    "Usage : personnage add <nom> <classe> <niveau> <points_de_vie> <id_campagne>"
-                )
+        if root == "character" and len(tokens) >= 2 and tokens[1].lower() == "add":
+            filled = _ensure_character_add(tokens)
+            if filled is None:
                 return True
-            _, _, nom, classe, niveau_s, pv_s, camp_s = tokens
+            _, _, nom, classe, niveau_s, pv_s, camp_s = filled
             try:
                 niveau = int(niveau_s)
                 pv = int(pv_s)
                 id_campagne = int(camp_s)
             except ValueError:
-                _usage("niveau, points_de_vie et id_campagne doivent être des entiers.")
+                _usage("level, hit_points and campaign_id must be integers.")
                 return True
             pid = repo.add_personnage(nom, classe, niveau, pv, id_campagne)
-            print(f"Personnage créé, id = {pid}.")
+            print(f"Character created, id = {pid}.")
             return True
 
-        if root == "quete" and len(tokens) >= 2 and tokens[1].lower() == "create":
-            if len(tokens) != 6:
-                _usage(
-                    "Usage : quete create <titre> <description> <statut> <id_campagne>"
-                )
+        if root == "quest" and len(tokens) >= 2 and tokens[1].lower() == "create":
+            filled = _ensure_quest_create(tokens)
+            if filled is None:
                 return True
-            _, _, titre, description, statut, camp_s = tokens
+            _, _, titre, description, statut, camp_s = filled
             try:
                 id_campagne = int(camp_s)
             except ValueError:
-                _usage("id_campagne doit être un entier.")
+                _usage("campaign_id must be an integer.")
                 return True
             qid = repo.create_quete(titre, description, statut, id_campagne)
-            print(f"Quête créée, id = {qid}.")
+            print(f"Quest created, id = {qid}.")
             return True
 
         if root == "participation" and len(tokens) >= 2 and tokens[1].lower() == "add":
-            if len(tokens) != 4:
-                _usage("Usage : participation add <id_personnage> <id_quete>")
+            filled = _ensure_participation_add(tokens)
+            if filled is None:
                 return True
-            _, _, p_s, q_s = tokens
+            _, _, p_s, q_s = filled
             try:
                 id_p = int(p_s)
                 id_q = int(q_s)
             except ValueError:
-                _usage("id_personnage et id_quete doivent être des entiers.")
+                _usage("character_id and quest_id must be integers.")
                 return True
             repo.inscrire_participation(id_p, id_q)
-            print("Participation enregistrée.")
+            print("Participation recorded.")
             return True
 
     except mysql.connector.Error as err:
-        print(f"Erreur SQL : {err}")
+        print(f"SQL error: {err}")
         return True
     except RuntimeError as err:
-        print(f"Erreur : {err}")
+        print(f"Error: {err}")
         return True
 
-    print(f"Commande inconnue : {tokens[0]!r}. Tapez help.")
+    print(f"Unknown command: {tokens[0]!r}. Type help.")
     return True

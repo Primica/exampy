@@ -57,7 +57,7 @@ class JdrListRepository:
     def _connection(self) -> MySQLConnectionLike:
         conn = self._db.connect(quiet=True)
         if conn is None:
-            raise RuntimeError("Connexion MySQL impossible.")
+            raise RuntimeError("Could not connect to MySQL.")
         return conn
 
     def list_toutes_campagnes(self) -> list[CampagneDetail]:

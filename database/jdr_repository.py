@@ -15,7 +15,7 @@ class JdrRepository:
     def _connection(self) -> MySQLConnectionLike:
         conn = self._db.connect(quiet=True)
         if conn is None:
-            raise RuntimeError("Connexion MySQL impossible.")
+            raise RuntimeError("Could not connect to MySQL.")
         return conn
 
     def list_campagnes(self) -> list[tuple[int, str, str]]:
@@ -206,7 +206,7 @@ class JdrRepository:
             conn.commit()
             last = cur.lastrowid
             if last is None:
-                raise RuntimeError("INSERT campagne : lastrowid indisponible.")
+                raise RuntimeError("INSERT campagne: lastrowid unavailable.")
             return int(last)
         except mysql.connector.Error:
             conn.rollback()
@@ -237,7 +237,7 @@ class JdrRepository:
             conn.commit()
             last = cur.lastrowid
             if last is None:
-                raise RuntimeError("INSERT personnage : lastrowid indisponible.")
+                raise RuntimeError("INSERT personnage: lastrowid unavailable.")
             return int(last)
         except mysql.connector.Error:
             conn.rollback()
@@ -267,7 +267,7 @@ class JdrRepository:
             conn.commit()
             last = cur.lastrowid
             if last is None:
-                raise RuntimeError("INSERT quete : lastrowid indisponible.")
+                raise RuntimeError("INSERT quete: lastrowid unavailable.")
             return int(last)
         except mysql.connector.Error:
             conn.rollback()
