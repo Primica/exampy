@@ -14,7 +14,7 @@ from database import JdrListRepository, JdrRepository
 HELP_TEXT = """
 Commands (domain order: campaign → character / quest → participation):
 
-  Tab: completion (subcommands, labels and ids from the database).
+  Tab: completion (subcommands, labels from the database).
 
   help
   exit | quit
@@ -22,20 +22,23 @@ Commands (domain order: campaign → character / quest → participation):
 
   Writes:
   campaign create <name> <dungeon_master>
-  character add <name> <class> <level> <hit_points> <campaign_id>
-  quest create <title> <description> <status> <campaign_id>
+  character add <name> <class> <level> <hit_points> <campaign_name>
+  quest create <title> <description> <status> <campaign_name>
   participation add <character_id> <quest_id>
 
   Lists:
   campaign list
-  character list <campaign_id>
-  quest list <campaign_id>
+  character list <campaign_name>
+  quest list <campaign_name>
   quest characters <quest_id>
   character quests <character_id>
 
+  Campaigns are picked by exact name; you may still pass a numeric campaign id.
+  If several campaigns share the same name, you will be asked for the dungeon master.
+
 Use quotes for values that contain spaces, e.g.:
   campaign create "The Mines" "Alice"
-  quest create "First quest" "Go north." open 1
+  quest create "First quest" "Go north." open "World"
 """.strip()
 
 
@@ -62,6 +65,37 @@ def _prompt_int(label: str) -> int:
             return int(raw)
         except ValueError:
             print("Value must be an integer.")
+
+
+def _resolve_campagne_id(repo: JdrRepository, raw: str) -> int | None:
+    """Resolve a campaign from a numeric id token or an exact campaign name."""
+    t = raw.strip()
+    if t.isdigit():
+        return int(t)
+    matches = repo.find_campagnes_by_nom_exact(t)
+    if not matches:
+        print(f"No campaign named {t!r}.")
+        return None
+    if len(matches) == 1:
+        return matches[0][0]
+    print(f"Multiple campaigns named {t!r}:")
+    for i, (_cid, mj) in enumerate(matches, 1):
+        print(f"  {i}. dungeon master: {mj}")
+    while True:
+        choice = _prompt_line(
+            f"Enter 1–{len(matches)} or the dungeon master name"
+        ).strip()
+        if choice.isdigit():
+            n = int(choice)
+            if 1 <= n <= len(matches):
+                return matches[n - 1][0]
+            print("Invalid number.")
+            continue
+        cl = choice.lower()
+        dms = [m for m in matches if m[1].lower() == cl]
+        if len(dms) == 1:
+            return dms[0][0]
+        print("Unknown or ambiguous dungeon master; try again.")
 
 
 def _clear_screen() -> None:
@@ -95,11 +129,11 @@ def _ensure_campaign_create(tokens: list[str]) -> list[str] | None:
 
 
 def _ensure_character_add(tokens: list[str]) -> list[str] | None:
-    """Expect: character add <name> <class> <level> <hit_points> <campaign_id>."""
+    """Expect: character add <name> <class> <level> <hit_points> <campaign_name>."""
     t = list(tokens)
     if len(t) > 7:
         _usage(
-            "Usage: character add <name> <class> <level> <hit_points> <campaign_id>"
+            "Usage: character add <name> <class> <level> <hit_points> <campaign_name>"
         )
         return None
     while len(t) < 7:
@@ -112,15 +146,15 @@ def _ensure_character_add(tokens: list[str]) -> list[str] | None:
         elif len(t) == 5:
             t.append(str(_prompt_int("Hit points")))
         elif len(t) == 6:
-            t.append(str(_prompt_int("Campaign id")))
+            t.append(_prompt_non_empty("Campaign name or id"))
     return t
 
 
 def _ensure_quest_create(tokens: list[str]) -> list[str] | None:
-    """Expect: quest create <title> <description> <status> <campaign_id>."""
+    """Expect: quest create <title> <description> <status> <campaign_name>."""
     t = list(tokens)
     if len(t) > 6:
-        _usage("Usage: quest create <title> <description> <status> <campaign_id>")
+        _usage("Usage: quest create <title> <description> <status> <campaign_name>")
         return None
     while len(t) < 6:
         if len(t) <= 2:
@@ -130,7 +164,7 @@ def _ensure_quest_create(tokens: list[str]) -> list[str] | None:
         elif len(t) == 4:
             t.append(_prompt_non_empty("Status"))
         elif len(t) == 5:
-            t.append(str(_prompt_int("Campaign id")))
+            t.append(_prompt_non_empty("Campaign name or id"))
     return t
 
 
@@ -151,20 +185,20 @@ def _ensure_participation_add(tokens: list[str]) -> list[str] | None:
 def _ensure_character_list(tokens: list[str]) -> list[str] | None:
     t = list(tokens)
     if len(t) > 3:
-        _usage("Usage: character list <campaign_id>")
+        _usage("Usage: character list <campaign_name>")
         return None
     while len(t) < 3:
-        t.append(str(_prompt_int("Campaign id")))
+        t.append(_prompt_non_empty("Campaign name or id"))
     return t
 
 
 def _ensure_quest_list(tokens: list[str]) -> list[str] | None:
     t = list(tokens)
     if len(t) > 3:
-        _usage("Usage: quest list <campaign_id>")
+        _usage("Usage: quest list <campaign_name>")
         return None
     while len(t) < 3:
-        t.append(str(_prompt_int("Campaign id")))
+        t.append(_prompt_non_empty("Campaign name or id"))
     return t
 
 
@@ -224,10 +258,8 @@ def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -
             filled = _ensure_character_list(tokens)
             if filled is None:
                 return True
-            try:
-                id_c = int(filled[2])
-            except ValueError:
-                _usage("campaign_id must be an integer.")
+            id_c = _resolve_campagne_id(repo, filled[2])
+            if id_c is None:
                 return True
             data = lists.list_personnages_par_campagne(id_c)
             _print_table(
@@ -275,10 +307,8 @@ def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -
             filled = _ensure_quest_list(tokens)
             if filled is None:
                 return True
-            try:
-                id_c = int(filled[2])
-            except ValueError:
-                _usage("campaign_id must be an integer.")
+            id_c = _resolve_campagne_id(repo, filled[2])
+            if id_c is None:
                 return True
             data = lists.list_quetes_par_campagne(id_c)
             _print_table(
@@ -326,9 +356,11 @@ def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -
             try:
                 niveau = int(niveau_s)
                 pv = int(pv_s)
-                id_campagne = int(camp_s)
             except ValueError:
-                _usage("level, hit_points and campaign_id must be integers.")
+                _usage("level and hit_points must be integers.")
+                return True
+            id_campagne = _resolve_campagne_id(repo, camp_s)
+            if id_campagne is None:
                 return True
             pid = repo.add_personnage(nom, classe, niveau, pv, id_campagne)
             print(f"Character created, id = {pid}.")
@@ -339,10 +371,8 @@ def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -
             if filled is None:
                 return True
             _, _, titre, description, statut, camp_s = filled
-            try:
-                id_campagne = int(camp_s)
-            except ValueError:
-                _usage("campaign_id must be an integer.")
+            id_campagne = _resolve_campagne_id(repo, camp_s)
+            if id_campagne is None:
                 return True
             qid = repo.create_quete(titre, description, statut, id_campagne)
             print(f"Quest created, id = {qid}.")

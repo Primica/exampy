@@ -18,6 +18,32 @@ class JdrRepository:
             raise RuntimeError("Could not connect to MySQL.")
         return conn
 
+    def find_campagnes_by_nom_exact(self, nom: str) -> list[tuple[int, str]]:
+        """Campaign rows matching exact ``nom`` (``id``, ``maitre_du_jeu``), ordered by id.
+
+        The schema unique key is (nom, maitre_du_jeu); several rows may share the same
+        ``nom`` with different dungeon masters.
+        """
+        conn = self._connection()
+        cur = conn.cursor()
+        try:
+            cur.execute(
+                """
+                SELECT id, maitre_du_jeu FROM campagne
+                WHERE nom = %s
+                ORDER BY id
+                """,
+                (nom,),
+            )
+            out: list[tuple[int, str]] = []
+            for raw in cur.fetchall():
+                t = row_tuple(raw)
+                out.append((sql_int(t[0]), str(t[1])))
+            return out
+        finally:
+            cur.close()
+            conn.close()
+
     def list_campagnes(self) -> list[tuple[int, str, str]]:
         """Campagnes (id, nom, maitre_du_jeu) pour complétion / affichage."""
         conn = self._connection()

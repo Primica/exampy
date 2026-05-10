@@ -6,6 +6,7 @@ parse_line at execution time for phrases with spaces.
 
 from __future__ import annotations
 
+import shlex
 import time
 from typing import Callable, Iterable
 
@@ -59,6 +60,33 @@ def _yield_filtered(
                 start_position=-len(prefix),
                 display_meta=meta(c) if meta else None,
             )
+
+
+def _yield_campaign_names(
+    rows: list[tuple[int, str, str]],
+    prefix: str,
+) -> Iterable[Completion]:
+    """Complete campaign by ``nom`` (shell-quoted); meta shows dungeon master."""
+    pl = prefix.lower()
+    if prefix.isdigit():
+        for cid, nom, mj in sorted(rows, key=lambda x: x[0]):
+            sid = str(cid)
+            if sid.startswith(prefix):
+                yield Completion(
+                    sid,
+                    start_position=-len(prefix),
+                    display_meta=f"{nom} · {mj}",
+                )
+        return
+    for _cid, nom, mj in sorted(rows, key=lambda x: x[1].lower()):
+        if pl and not nom.lower().startswith(pl):
+            continue
+        quoted = shlex.quote(nom)
+        yield Completion(
+            quoted,
+            start_position=-len(prefix),
+            display_meta=mj,
+        )
 
 
 class JdrShellCompleter(Completer):
@@ -149,14 +177,7 @@ class JdrShellCompleter(Completer):
         sub = words[1].lower()
         if sub == "list":
             if (len(words) == 2 and ends_ws) or (len(words) == 2 and prefix):
-                for cid, nom, mj in self._campagnes_cached():
-                    sid = str(cid)
-                    if not prefix or sid.startswith(prefix):
-                        yield Completion(
-                            sid,
-                            start_position=-len(prefix),
-                            display_meta=f"{nom} — {mj}",
-                        )
+                yield from _yield_campaign_names(self._campagnes_cached(), prefix)
             return
         if sub == "quests":
             if (len(words) == 2 and ends_ws) or (len(words) == 2 and prefix):
@@ -200,14 +221,7 @@ class JdrShellCompleter(Completer):
                     yield Completion(s, start_position=-len(prefix), display_meta="HP")
             return
         if (len(words) == 6 and ends_ws) or (len(words) == 6 and prefix):
-            for cid, nom, mj in self._campagnes_cached():
-                sid = str(cid)
-                if not prefix or sid.startswith(prefix):
-                    yield Completion(
-                        sid,
-                        start_position=-len(prefix),
-                        display_meta=f"{nom} — {mj}",
-                    )
+            yield from _yield_campaign_names(self._campagnes_cached(), prefix)
 
     def _complete_quest(
         self, words: list[str], prefix: str, ends_ws: bool
@@ -218,14 +232,7 @@ class JdrShellCompleter(Completer):
         sub = words[1].lower()
         if sub == "list":
             if (len(words) == 2 and ends_ws) or (len(words) == 2 and prefix):
-                for cid, nom, mj in self._campagnes_cached():
-                    sid = str(cid)
-                    if not prefix or sid.startswith(prefix):
-                        yield Completion(
-                            sid,
-                            start_position=-len(prefix),
-                            display_meta=f"{nom} — {mj}",
-                        )
+                yield from _yield_campaign_names(self._campagnes_cached(), prefix)
             return
         if sub == "characters":
             if (len(words) == 2 and ends_ws) or (len(words) == 2 and prefix):
@@ -266,14 +273,7 @@ class JdrShellCompleter(Completer):
             yield from _yield_filtered(merged, prefix, meta=lambda s: "status")
             return
         if (len(words) == 5 and ends_ws) or (len(words) == 5 and prefix):
-            for cid, nom, mj in self._campagnes_cached():
-                sid = str(cid)
-                if not prefix or sid.startswith(prefix):
-                    yield Completion(
-                        sid,
-                        start_position=-len(prefix),
-                        display_meta=f"{nom} — {mj}",
-                    )
+            yield from _yield_campaign_names(self._campagnes_cached(), prefix)
 
     def _complete_participation(
         self, words: list[str], prefix: str, ends_ws: bool
