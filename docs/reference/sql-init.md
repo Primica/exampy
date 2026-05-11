@@ -1,8 +1,8 @@
 # Script `sql/init.sql`
 
-Fichier source à la racine du dépôt : **`sql/init.sql`** (hors dossier `docs/`, non servi par MkDocs).
+Fichier source à la racine du dépôt : **`sql/init.sql`**. Ce fichier n’est pas sous `docs/` et n’est pas servi par MkDocs.
 
-Ce script recrée la base **`jdr`** et les tables métier. Contenu de référence (à jour du dépôt) :
+Ce script recrée la base **`jdr`** et les tables métier. Le contenu ci-dessous reflète l’état du dépôt au moment de la rédaction de cette page.
 
 ```sql
 DROP DATABASE IF EXISTS jdr;

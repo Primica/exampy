@@ -1,28 +1,28 @@
-# CLI (Cyclopts)
+# CLI Cyclopts
 
-L’entrée du programme est **`main.py`**. Elle instancie une application **`cyclopts.App`** nommée `exampy`.
+L’entrée du programme est **`main.py`**. Elle instancie une application **`cyclopts.App`** nommée `exampy`. Les textes d’aide Cyclopts et les messages console associés sont en **anglais**, y compris lors d’un échec de connexion avant l’ouverture du shell.
 
 ## Commandes
 
 ```mermaid
 flowchart LR
   Root[exampy]
-  Default[defaut sans args]
-  Shell[shell]
+  Default[default_cmd]
+  ShellCmd[shell]
   Ping[db-ping]
   Root --> Default
-  Root --> Shell
+  Root --> ShellCmd
   Root --> Ping
   Default --> Session[_run_shell_session]
-  Shell --> Session
+  ShellCmd --> Session
   Ping --> Status[get_db_status]
 ```
 
 | Invocation | Comportement |
 |------------|----------------|
-| `exampy` | Commande par défaut : vérifie une connexion MySQL puis lance le **shell** (`run_shell`). |
-| `exampy shell` | Identique. |
-| `exampy db-ping` | Affiche la version du serveur MySQL (sans ouvrir le REPL). |
+| `exampy` | Commande par défaut : vérifie une connexion MySQL puis lance le **shell** en appelant `run_shell`. |
+| `exampy shell` | Identique à la ligne précédente. |
+| `exampy db-ping` | Affiche la version du serveur MySQL sans ouvrir le REPL. |
 
 ## Séquence avant le shell
 
@@ -34,7 +34,7 @@ sequenceDiagram
   CLI->>DB: connect quiet
   alt échec
     DB-->>CLI: None
-    CLI-->>CLI: message erreur stop
+    CLI-->>CLI: erreur connexion affichée en anglais puis arrêt
   else succès
     DB-->>CLI: connexion
     CLI->>DB: close

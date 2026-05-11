@@ -1,5 +1,5 @@
 site_name: exampy — JDR & shell
-site_description: Application CLI et shell MySQL pour campagnes, personnages, quêtes et participations.
+site_description: Application CLI et shell MySQL pour campagnes, personnages, quêtes et participations. Interface utilisateur en anglais.
 site_author: exampy
 
 theme:
@@ -58,9 +58,9 @@ nav:
       - Schéma & contraintes: database/schema.md
       - Modules Python: database/modules.md
   - Application:
-      - CLI (Cyclopts): application/cli.md
+      - CLI Cyclopts: application/cli.md
       - Shell interactif: application/shell.md
-  - Schéma SQL (référence): reference/sql-init.md
+  - Schéma SQL — référence: reference/sql-init.md
 
 extra:
   generator: false
