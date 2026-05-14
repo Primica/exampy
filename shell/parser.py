@@ -1,5 +1,3 @@
-"""Parse input lines (shell quoting via shlex)."""
-
 from __future__ import annotations
 
 import shlex

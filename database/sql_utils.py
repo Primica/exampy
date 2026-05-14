@@ -1,5 +1,3 @@
-"""Utilitaires typage / accès aux cellules issues de MySQL."""
-
 from __future__ import annotations
 
 from typing import Any, cast

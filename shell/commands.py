@@ -1,5 +1,3 @@
-"""Interactive shell commands (writes + lists)."""
-
 from __future__ import annotations
 
 import os
@@ -68,7 +66,6 @@ def _prompt_int(label: str) -> int:
 
 
 def _resolve_campagne_id(repo: JdrRepository, raw: str) -> int | None:
-    """Resolve a campaign from a numeric id token or an exact campaign name."""
     t = raw.strip()
     if t.isdigit():
         return int(t)
@@ -99,7 +96,6 @@ def _resolve_campagne_id(repo: JdrRepository, raw: str) -> int | None:
 
 
 def _clear_screen() -> None:
-    """Clear the terminal (cls / clear)."""
     if os.name == "nt":
         subprocess.run(["cmd", "/c", "cls"], check=False, capture_output=True)
     else:
@@ -115,7 +111,6 @@ def _print_table(headers: list[str], rows: list[list[object]]) -> None:
 
 
 def _ensure_campaign_create(tokens: list[str]) -> list[str] | None:
-    """Expect: campaign create <name> <dungeon_master>."""
     t = list(tokens)
     if len(t) > 4:
         _usage("Usage: campaign create <name> <dungeon_master>")
@@ -129,7 +124,6 @@ def _ensure_campaign_create(tokens: list[str]) -> list[str] | None:
 
 
 def _ensure_character_add(tokens: list[str]) -> list[str] | None:
-    """Expect: character add <name> <class> <level> <hit_points> <campaign_name>."""
     t = list(tokens)
     if len(t) > 7:
         _usage(
@@ -151,7 +145,6 @@ def _ensure_character_add(tokens: list[str]) -> list[str] | None:
 
 
 def _ensure_quest_create(tokens: list[str]) -> list[str] | None:
-    """Expect: quest create <title> <description> <status> <campaign_name>."""
     t = list(tokens)
     if len(t) > 6:
         _usage("Usage: quest create <title> <description> <status> <campaign_name>")
@@ -169,7 +162,6 @@ def _ensure_quest_create(tokens: list[str]) -> list[str] | None:
 
 
 def _ensure_participation_add(tokens: list[str]) -> list[str] | None:
-    """Expect: participation add <character_id> <quest_id>."""
     t = list(tokens)
     if len(t) > 4:
         _usage("Usage: participation add <character_id> <quest_id>")
@@ -223,7 +215,6 @@ def _ensure_quest_characters(tokens: list[str]) -> list[str] | None:
 
 
 def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -> bool:
-    """Run one command. Returns False to stop the shell."""
     if not tokens:
         return True
 

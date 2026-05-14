@@ -18,6 +18,7 @@ flowchart TB
   subgraph db [Paquet database]
     CFG[config.py]
     MYSQL[mysql_db.py]
+    RB[repository_base.py]
     JRW[JdrRepository]
     JRL[JdrListRepository]
     SQLU[sql_utils]
@@ -35,15 +36,16 @@ flowchart TB
   CMD --> JRL
   CMP --> JRW
   CFG -.->|"DB_* via dotenv"| MYSQL
-  JRW --> MYSQL
-  JRL --> MYSQL
+  JRW --> RB
+  JRL --> RB
+  RB --> MYSQL
   JRW --> SQLU
   JRL --> SQLU
   MYSQL --> DB
 ```
 
 - **`main.py`** : point d’entrée Cyclopts ; `default_cmd` et `shell` lancent le REPL, `db-ping` interroge **`MySQLDatabase`** sans ouvrir le shell.
-- **`database`** : configuration, connexion, écritures via **`JdrRepository`**, lectures listes via **`JdrListRepository`**, utilitaires **`sql_utils`**.
+- **`database`** : configuration, connexion **`MySQLDatabase`**, socle commun **`BaseJdrRepository`** (fichier `repository_base.py`, détaillé dans [Modules Python](database/modules.md#repository_basepy)), écritures via **`JdrRepository`**, lectures listes via **`JdrListRepository`**, utilitaires **`sql_utils`**.
 - **`shell`** : boucle REPL avec **`prompt_toolkit`**, dispatch des commandes, parsing `shlex`, complétion contextuelle.
 
 ## Flux d’une commande shell
@@ -83,7 +85,7 @@ sequenceDiagram
 
 ## Connexions MySQL
 
-Chaque méthode de dépôt ouvre une connexion, exécute la requête, valide ou annule la transaction, puis ferme la connexion. Le shell conserve **une** instance `MySQLDatabase` et **une** instance par dépôt pour toute la session ; ce n’est pas un pool partagé entre appels.
+Chaque méthode de dépôt ouvre une connexion via **`BaseJdrRepository._connection()`**, exécute la requête dans un bloc **`with self._session() as (conn, cur):`** qui garantit la fermeture du curseur et de la connexion, valide ou annule la transaction pour les écritures, puis termine. Le shell conserve **une** instance `MySQLDatabase` et **une** instance par dépôt pour toute la session ; ce n’est pas un pool partagé entre appels.
 
 ```mermaid
 stateDiagram-v2

@@ -1,8 +1,4 @@
-"""CLI entry point (Cyclopts)."""
-
 from __future__ import annotations
-
-import database.config  # noqa: F401 — charge le .env au démarrage
 
 from cyclopts import App
 
@@ -31,19 +27,16 @@ def _run_shell_session() -> None:
 
 @app.default
 def default_cmd() -> None:
-    """Start the interactive shell (default when no subcommand is given)."""
     _run_shell_session()
 
 
 @app.command
 def shell() -> None:
-    """Start the interactive JDR shell."""
     _run_shell_session()
 
 
 @app.command
 def db_ping() -> None:
-    """Print the MySQL server version (connection test)."""
     db = _make_db()
     db.get_db_status()
 

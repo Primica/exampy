@@ -23,7 +23,7 @@ flowchart TB
 - **`repl.py`** : boucle infinie, invite `jdr>`, historique dans `~/.cache/exampy/shell_history`. La bannière d’accueil est en anglais.
 - **`parser.py`** : découpe une ligne avec **`shlex.split`**, en respectant les guillemets shell. Les messages d’erreur de parsing sont en anglais.
 - **`commands.py`** : branchement sur les tokens ; affichage des listes avec **tabulate** ; texte d’aide `help` et messages d’erreur en anglais ; **invites interactives** pour les arguments manquants ; **résolution campagne** par nom ou par identifiant numérique.
-- **`completer.py`** : complétion **Tab** via **`prompt_toolkit`** selon le contexte — sous-commandes, noms issus de la base, noms de campagne pour les arguments concernés.
+- **`completer.py`** : complétion **Tab** via **`prompt_toolkit`** selon le contexte — sous-commandes, noms issus de la base, noms de campagne pour les arguments concernés. Les appels au dépôt sont encapsulés dans **`_safe_call`** (retour à une valeur par défaut si une exception survient) ; les suggestions **`(id_entier, libellé)`** passent par **`_yield_int_id_completions`** pour éviter la duplication des boucles **`Completion`**.
 
 ## Langue de l’interface
 
@@ -71,6 +71,8 @@ quest create "First quest" "Go north." open "World"
 | `character quests <character_id>` | `list_quetes_par_personnage` |
 
 ## Complétion
+
+En interne, le compléteur combine des listes de chaînes (**`_yield_filtered`**, **`_yield_campaign_names`**) et des paires identifiant / légende pour les champs numériques (**`_yield_int_id_completions`**), après des lectures MySQL protégées par **`_safe_call`** afin de ne pas interrompre la session Tab en cas d’erreur réseau ou SQL.
 
 La logique de complétion découpe sur les **espaces** sans interpréter les guillemets comme le ferait `shlex` à l’exécution : pour des libellés avec espaces, utilisez des **guillemets** comme pour l’exécution réelle.
 

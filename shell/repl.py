@@ -1,5 +1,3 @@
-"""JDR shell REPL loop (prompt_toolkit: history + completion)."""
-
 from __future__ import annotations
 
 from pathlib import Path

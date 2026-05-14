@@ -1,14 +1,8 @@
-"""Context-aware completion (commands + MySQL-backed values).
-
-Splits on spaces (no shlex): same limitation as unquoted typing; use quotes and
-parse_line at execution time for phrases with spaces.
-"""
-
 from __future__ import annotations
 
 import shlex
 import time
-from typing import Callable, Iterable
+from typing import Callable, Iterable, TypeVar
 
 from prompt_toolkit.completion import Completer, Completion
 
@@ -29,9 +23,30 @@ _SUB_CAMPAIGN = ("create", "list")
 _SUB_CHARACTER = ("add", "list", "quests")
 _SUB_QUEST = ("create", "list", "characters")
 
+T = TypeVar("T")
+
+
+def _safe_call(fn: Callable[[], T], default: T) -> T:
+    try:
+        return fn()
+    except Exception:
+        return default
+
+
+def _yield_int_id_completions(
+    rows: list[tuple[int, str]],
+    prefix: str,
+) -> Iterable[Completion]:
+    for eid, meta in rows:
+        sid = str(eid)
+        yield Completion(
+            sid,
+            start_position=-len(prefix),
+            display_meta=meta,
+        )
+
 
 def split_prompt(text_before_cursor: str) -> tuple[list[str], str]:
-    """Completed words before the cursor and the fragment being completed."""
     if not text_before_cursor:
         return [], ""
     ends_ws = text_before_cursor[-1].isspace()
@@ -66,7 +81,6 @@ def _yield_campaign_names(
     rows: list[tuple[int, str, str]],
     prefix: str,
 ) -> Iterable[Completion]:
-    """Complete campaign by ``nom`` (shell-quoted); meta shows dungeon master."""
     pl = prefix.lower()
     if prefix.isdigit():
         for cid, nom, mj in sorted(rows, key=lambda x: x[0]):
@@ -98,14 +112,14 @@ class JdrShellCompleter(Completer):
     def _campagnes_cached(self) -> list[tuple[int, str, str]]:
         now = time.monotonic()
         if now - self._campagnes_ts > 1.5 or not self._campagnes_rows:
-            try:
-                self._campagnes_rows = self._repo.list_campagnes()
-            except Exception:
-                self._campagnes_rows = []
+            self._campagnes_rows = _safe_call(
+                lambda: self._repo.list_campagnes(), []
+            )
             self._campagnes_ts = now
         return self._campagnes_rows
 
-    def get_completions(self, document, complete_event):  # noqa: ARG002
+    def get_completions(self, document, complete_event):
+        _ = complete_event
         text = document.text_before_cursor
         words, prefix = split_prompt(text)
         ends_ws = bool(text) and text[-1].isspace()
@@ -154,17 +168,13 @@ class JdrShellCompleter(Completer):
         if sub != "create":
             return
         if len(words) == 2:
-            try:
-                noms = self._repo.list_distinct_noms_campagne(prefix)
-            except Exception:
-                noms = []
+            noms = _safe_call(
+                lambda: self._repo.list_distinct_noms_campagne(prefix), []
+            )
             yield from _yield_filtered(noms, prefix, meta=lambda n: "name (existing)")
             return
         if len(words) == 3:
-            try:
-                mjs = self._repo.list_distinct_mj(prefix)
-            except Exception:
-                mjs = []
+            mjs = _safe_call(lambda: self._repo.list_distinct_mj(prefix), [])
             yield from _yield_filtered(mjs, prefix, meta=lambda m: "dungeon master")
             return
 
@@ -181,31 +191,19 @@ class JdrShellCompleter(Completer):
             return
         if sub == "quests":
             if (len(words) == 2 and ends_ws) or (len(words) == 2 and prefix):
-                try:
-                    persos = self._repo.list_personnages(prefix)
-                except Exception:
-                    persos = []
-                for pid, nom in persos:
-                    yield Completion(
-                        str(pid),
-                        start_position=-len(prefix),
-                        display_meta=nom,
-                    )
+                persos = _safe_call(lambda: self._repo.list_personnages(prefix), [])
+                yield from _yield_int_id_completions(persos, prefix)
             return
         if sub != "add":
             return
         if len(words) == 2:
-            try:
-                noms = self._repo.list_distinct_noms_personnage(prefix)
-            except Exception:
-                noms = []
+            noms = _safe_call(
+                lambda: self._repo.list_distinct_noms_personnage(prefix), []
+            )
             yield from _yield_filtered(noms, prefix, meta=lambda n: "name")
             return
         if len(words) == 3:
-            try:
-                classes = self._repo.list_distinct_classes(prefix)
-            except Exception:
-                classes = []
+            classes = _safe_call(lambda: self._repo.list_distinct_classes(prefix), [])
             yield from _yield_filtered(classes, prefix, meta=lambda c: "class")
             return
         if len(words) == 4:
@@ -236,38 +234,23 @@ class JdrShellCompleter(Completer):
             return
         if sub == "characters":
             if (len(words) == 2 and ends_ws) or (len(words) == 2 and prefix):
-                try:
-                    quetes = self._repo.list_quetes(prefix)
-                except Exception:
-                    quetes = []
-                for qid, titre in quetes:
-                    yield Completion(
-                        str(qid),
-                        start_position=-len(prefix),
-                        display_meta=titre,
-                    )
+                quetes = _safe_call(lambda: self._repo.list_quetes(prefix), [])
+                yield from _yield_int_id_completions(quetes, prefix)
             return
         if sub != "create":
             return
         if len(words) == 2:
-            try:
-                titres = self._repo.list_distinct_titres_quete(prefix)
-            except Exception:
-                titres = []
+            titres = _safe_call(lambda: self._repo.list_distinct_titres_quete(prefix), [])
             yield from _yield_filtered(titres, prefix, meta=lambda t: "title")
             return
         if len(words) == 3:
-            try:
-                descs = self._repo.list_distinct_descriptions_quete(prefix)
-            except Exception:
-                descs = []
+            descs = _safe_call(
+                lambda: self._repo.list_distinct_descriptions_quete(prefix), []
+            )
             yield from _yield_filtered(descs, prefix, meta=lambda d: "description")
             return
         if len(words) == 4:
-            try:
-                stats = self._repo.list_distinct_statuts_quete(prefix)
-            except Exception:
-                stats = []
+            stats = _safe_call(lambda: self._repo.list_distinct_statuts_quete(prefix), [])
             defaults = ("ouverte", "en_cours", "terminee", "echec")
             merged = list(dict.fromkeys([*stats, *defaults]))
             yield from _yield_filtered(merged, prefix, meta=lambda s: "status")
@@ -284,38 +267,11 @@ class JdrShellCompleter(Completer):
         if words[1].lower() != "add":
             return
         if len(words) == 2:
-            try:
-                persos = self._repo.list_personnages(prefix)
-            except Exception:
-                persos = []
-            for pid, nom in persos:
-                sid = str(pid)
-                yield Completion(
-                    sid,
-                    start_position=-len(prefix),
-                    display_meta=nom,
-                )
+            persos = _safe_call(lambda: self._repo.list_personnages(prefix), [])
+            yield from _yield_int_id_completions(persos, prefix)
             return
-        if len(words) == 3 and ends_ws:
-            try:
-                quetes = self._repo.list_quetes("")
-            except Exception:
-                quetes = []
-            for qid, titre in quetes:
-                yield Completion(
-                    str(qid),
-                    start_position=-len(prefix),
-                    display_meta=titre,
-                )
+        if len(words) == 3:
+            id_prefix = "" if ends_ws else prefix
+            quetes = _safe_call(lambda: self._repo.list_quetes(id_prefix), [])
+            yield from _yield_int_id_completions(quetes, prefix)
             return
-        if len(words) == 3 and prefix and not ends_ws:
-            try:
-                quetes = self._repo.list_quetes(prefix)
-            except Exception:
-                quetes = []
-            for qid, titre in quetes:
-                yield Completion(
-                    str(qid),
-                    start_position=-len(prefix),
-                    display_meta=titre,
-                )

@@ -2,31 +2,88 @@ from __future__ import annotations
 
 import mysql.connector
 
-from .mysql_db import MySQLConnectionLike, MySQLDatabase
+from .repository_base import BaseJdrRepository
 from .sql_utils import row_tuple, sql_int
 
+_DISTINCT_PREFIX_LIMITS: dict[tuple[str, str], int] = {
+    ("campagne", "nom"): 50,
+    ("campagne", "maitre_du_jeu"): 50,
+    ("personnage", "classe"): 50,
+    ("personnage", "nom"): 50,
+    ("quete", "titre"): 50,
+    ("quete", "statut"): 50,
+    ("quete", "description"): 30,
+}
 
-class JdrRepository:
-    """Requêtes lecture / écriture sur le schéma JDR."""
+_ID_LABEL_TABLE_LABEL: dict[str, str] = {
+    "personnage": "nom",
+    "quete": "titre",
+}
 
-    def __init__(self, db: MySQLDatabase) -> None:
-        self._db = db
 
-    def _connection(self) -> MySQLConnectionLike:
-        conn = self._db.connect(quiet=True)
-        if conn is None:
-            raise RuntimeError("Could not connect to MySQL.")
-        return conn
+class JdrRepository(BaseJdrRepository):
+    def _list_distinct_by_prefix(self, table: str, column: str, prefix: str) -> list[str]:
+        key = (table, column)
+        limit = _DISTINCT_PREFIX_LIMITS.get(key)
+        if limit is None:
+            raise ValueError(f"Unknown distinct column: {table}.{column}")
+        qt_table = f"`{table}`"
+        qt_col = f"`{column}`"
+        sql = (
+            f"SELECT DISTINCT {qt_col} FROM {qt_table} "
+            f"WHERE {qt_col} LIKE %s ORDER BY {qt_col} LIMIT %s"
+        )
+        with self._session() as (_conn, cur):
+            cur.execute(sql, (f"{prefix}%", limit))
+            return [str(row_tuple(r)[0]) for r in cur.fetchall()]
+
+    def _list_id_label_by_prefix(self, table: str, id_prefix: str) -> list[tuple[int, str]]:
+        label_col = _ID_LABEL_TABLE_LABEL.get(table)
+        if label_col is None:
+            raise ValueError(f"Unknown id/label table: {table}")
+        qt_table = f"`{table}`"
+        qt_label = f"`{label_col}`"
+        with self._session() as (_conn, cur):
+            if id_prefix:
+                cur.execute(
+                    f"SELECT id, {qt_label} FROM {qt_table} "
+                    "WHERE CAST(id AS CHAR) LIKE %s ORDER BY id LIMIT 100",
+                    (f"{id_prefix}%",),
+                )
+            else:
+                cur.execute(f"SELECT id, {qt_label} FROM {qt_table} ORDER BY id LIMIT 100")
+            out: list[tuple[int, str]] = []
+            for raw in cur.fetchall():
+                t = row_tuple(raw)
+                out.append((sql_int(t[0]), str(t[1])))
+            return out
+
+    def _execute_insert_returning_id(
+        self, sql: str, params: tuple[object, ...], error_prefix: str
+    ) -> int:
+        with self._session() as (conn, cur):
+            try:
+                cur.execute(sql, params)
+                conn.commit()
+                last = cur.lastrowid
+                if last is None:
+                    raise RuntimeError(f"{error_prefix}: lastrowid unavailable.")
+                return int(last)
+            except mysql.connector.Error:
+                conn.rollback()
+                raise
+
+    def _execute_insert_no_row(self, sql: str, params: tuple[object, ...]) -> None:
+        with self._session() as (conn, cur):
+            try:
+                cur.execute(sql, params)
+                conn.commit()
+            except mysql.connector.Error:
+                conn.rollback()
+                raise
 
     def find_campagnes_by_nom_exact(self, nom: str) -> list[tuple[int, str]]:
-        """Campaign rows matching exact ``nom`` (``id``, ``maitre_du_jeu``), ordered by id.
-
-        The schema unique key is (nom, maitre_du_jeu); several rows may share the same
-        ``nom`` with different dungeon masters.
-        """
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
+        with self._session() as (_conn, cur):
             cur.execute(
                 """
                 SELECT id, maitre_du_jeu FROM campagne
@@ -40,15 +97,9 @@ class JdrRepository:
                 t = row_tuple(raw)
                 out.append((sql_int(t[0]), str(t[1])))
             return out
-        finally:
-            cur.close()
-            conn.close()
 
     def list_campagnes(self) -> list[tuple[int, str, str]]:
-        """Campagnes (id, nom, maitre_du_jeu) pour complétion / affichage."""
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
+        with self._session() as (_conn, cur):
             cur.execute(
                 "SELECT id, nom, maitre_du_jeu FROM campagne ORDER BY id LIMIT 500"
             )
@@ -58,188 +109,40 @@ class JdrRepository:
                 t = row_tuple(raw)
                 out.append((sql_int(t[0]), str(t[1]), str(t[2])))
             return out
-        finally:
-            cur.close()
-            conn.close()
 
     def list_distinct_noms_campagne(self, prefix: str) -> list[str]:
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
-            cur.execute(
-                "SELECT DISTINCT nom FROM campagne WHERE nom LIKE %s ORDER BY nom LIMIT 50",
-                (f"{prefix}%",),
-            )
-            return [str(row_tuple(r)[0]) for r in cur.fetchall()]
-        finally:
-            cur.close()
-            conn.close()
+        return self._list_distinct_by_prefix("campagne", "nom", prefix)
 
     def list_distinct_mj(self, prefix: str) -> list[str]:
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
-            cur.execute(
-                """
-                SELECT DISTINCT maitre_du_jeu FROM campagne
-                WHERE maitre_du_jeu LIKE %s ORDER BY maitre_du_jeu LIMIT 50
-                """,
-                (f"{prefix}%",),
-            )
-            return [str(row_tuple(r)[0]) for r in cur.fetchall()]
-        finally:
-            cur.close()
-            conn.close()
+        return self._list_distinct_by_prefix("campagne", "maitre_du_jeu", prefix)
 
     def list_distinct_classes(self, prefix: str) -> list[str]:
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
-            cur.execute(
-                """
-                SELECT DISTINCT classe FROM personnage
-                WHERE classe LIKE %s ORDER BY classe LIMIT 50
-                """,
-                (f"{prefix}%",),
-            )
-            return [str(row_tuple(r)[0]) for r in cur.fetchall()]
-        finally:
-            cur.close()
-            conn.close()
+        return self._list_distinct_by_prefix("personnage", "classe", prefix)
 
     def list_distinct_noms_personnage(self, prefix: str) -> list[str]:
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
-            cur.execute(
-                """
-                SELECT DISTINCT nom FROM personnage
-                WHERE nom LIKE %s ORDER BY nom LIMIT 50
-                """,
-                (f"{prefix}%",),
-            )
-            return [str(row_tuple(r)[0]) for r in cur.fetchall()]
-        finally:
-            cur.close()
-            conn.close()
+        return self._list_distinct_by_prefix("personnage", "nom", prefix)
 
     def list_distinct_titres_quete(self, prefix: str) -> list[str]:
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
-            cur.execute(
-                """
-                SELECT DISTINCT titre FROM quete
-                WHERE titre LIKE %s ORDER BY titre LIMIT 50
-                """,
-                (f"{prefix}%",),
-            )
-            return [str(row_tuple(r)[0]) for r in cur.fetchall()]
-        finally:
-            cur.close()
-            conn.close()
+        return self._list_distinct_by_prefix("quete", "titre", prefix)
 
     def list_distinct_statuts_quete(self, prefix: str) -> list[str]:
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
-            cur.execute(
-                """
-                SELECT DISTINCT statut FROM quete
-                WHERE statut LIKE %s ORDER BY statut LIMIT 50
-                """,
-                (f"{prefix}%",),
-            )
-            return [str(row_tuple(r)[0]) for r in cur.fetchall()]
-        finally:
-            cur.close()
-            conn.close()
+        return self._list_distinct_by_prefix("quete", "statut", prefix)
 
     def list_distinct_descriptions_quete(self, prefix: str) -> list[str]:
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
-            cur.execute(
-                """
-                SELECT DISTINCT description FROM quete
-                WHERE description LIKE %s ORDER BY description LIMIT 30
-                """,
-                (f"{prefix}%",),
-            )
-            return [str(row_tuple(r)[0]) for r in cur.fetchall()]
-        finally:
-            cur.close()
-            conn.close()
+        return self._list_distinct_by_prefix("quete", "description", prefix)
 
     def list_personnages(self, id_prefix: str) -> list[tuple[int, str]]:
-        """Personnages (id, nom), filtre optionnel sur le début de l'id (texte)."""
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
-            if id_prefix:
-                cur.execute(
-                    """
-                    SELECT id, nom FROM personnage
-                    WHERE CAST(id AS CHAR) LIKE %s ORDER BY id LIMIT 100
-                    """,
-                    (f"{id_prefix}%",),
-                )
-            else:
-                cur.execute(
-                    "SELECT id, nom FROM personnage ORDER BY id LIMIT 100"
-                )
-            out: list[tuple[int, str]] = []
-            for raw in cur.fetchall():
-                t = row_tuple(raw)
-                out.append((sql_int(t[0]), str(t[1])))
-            return out
-        finally:
-            cur.close()
-            conn.close()
+        return self._list_id_label_by_prefix("personnage", id_prefix)
 
     def list_quetes(self, id_prefix: str) -> list[tuple[int, str]]:
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
-            if id_prefix:
-                cur.execute(
-                    """
-                    SELECT id, titre FROM quete
-                    WHERE CAST(id AS CHAR) LIKE %s ORDER BY id LIMIT 100
-                    """,
-                    (f"{id_prefix}%",),
-                )
-            else:
-                cur.execute("SELECT id, titre FROM quete ORDER BY id LIMIT 100")
-            out: list[tuple[int, str]] = []
-            for raw in cur.fetchall():
-                t = row_tuple(raw)
-                out.append((sql_int(t[0]), str(t[1])))
-            return out
-        finally:
-            cur.close()
-            conn.close()
+        return self._list_id_label_by_prefix("quete", id_prefix)
 
     def create_campagne(self, nom: str, maitre_du_jeu: str) -> int:
-        """Insère une campagne. Doit précéder personnages et quêtes de cette campagne."""
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
-            cur.execute(
-                "INSERT INTO campagne (nom, maitre_du_jeu) VALUES (%s, %s)",
-                (nom, maitre_du_jeu),
-            )
-            conn.commit()
-            last = cur.lastrowid
-            if last is None:
-                raise RuntimeError("INSERT campagne: lastrowid unavailable.")
-            return int(last)
-        except mysql.connector.Error:
-            conn.rollback()
-            raise
-        finally:
-            cur.close()
-            conn.close()
+        return self._execute_insert_returning_id(
+            "INSERT INTO campagne (nom, maitre_du_jeu) VALUES (%s, %s)",
+            (nom, maitre_du_jeu),
+            "INSERT campagne",
+        )
 
     def add_personnage(
         self,
@@ -249,28 +152,14 @@ class JdrRepository:
         points_de_vie: int,
         id_campagne: int,
     ) -> int:
-        """Ajoute un personnage à une campagne existante (FK ``id_campagne``)."""
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
-            cur.execute(
-                """
-                INSERT INTO personnage (nom, classe, niveau, points_de_vie, id_campagne)
-                VALUES (%s, %s, %s, %s, %s)
-                """,
-                (nom, classe, niveau, points_de_vie, id_campagne),
-            )
-            conn.commit()
-            last = cur.lastrowid
-            if last is None:
-                raise RuntimeError("INSERT personnage: lastrowid unavailable.")
-            return int(last)
-        except mysql.connector.Error:
-            conn.rollback()
-            raise
-        finally:
-            cur.close()
-            conn.close()
+        return self._execute_insert_returning_id(
+            """
+            INSERT INTO personnage (nom, classe, niveau, points_de_vie, id_campagne)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (nom, classe, niveau, points_de_vie, id_campagne),
+            "INSERT personnage",
+        )
 
     def create_quete(
         self,
@@ -279,42 +168,17 @@ class JdrRepository:
         statut: str,
         id_campagne: int,
     ) -> int:
-        """Crée une quête rattachée à une campagne existante."""
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
-            cur.execute(
-                """
-                INSERT INTO quete (titre, description, statut, id_campagne)
-                VALUES (%s, %s, %s, %s)
-                """,
-                (titre, description, statut, id_campagne),
-            )
-            conn.commit()
-            last = cur.lastrowid
-            if last is None:
-                raise RuntimeError("INSERT quete: lastrowid unavailable.")
-            return int(last)
-        except mysql.connector.Error:
-            conn.rollback()
-            raise
-        finally:
-            cur.close()
-            conn.close()
+        return self._execute_insert_returning_id(
+            """
+            INSERT INTO quete (titre, description, statut, id_campagne)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (titre, description, statut, id_campagne),
+            "INSERT quete",
+        )
 
     def inscrire_participation(self, id_personnage: int, id_quete: int) -> None:
-        """Inscrit un personnage à une quête (table ``participation``)."""
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
-            cur.execute(
-                "INSERT INTO participation (id_personnage, id_quete) VALUES (%s, %s)",
-                (id_personnage, id_quete),
-            )
-            conn.commit()
-        except mysql.connector.Error:
-            conn.rollback()
-            raise
-        finally:
-            cur.close()
-            conn.close()
+        self._execute_insert_no_row(
+            "INSERT INTO participation (id_personnage, id_quete) VALUES (%s, %s)",
+            (id_personnage, id_quete),
+        )

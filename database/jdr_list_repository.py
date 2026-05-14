@@ -1,10 +1,8 @@
-"""Lecture structurée : listes et jointures sur le schéma JDR."""
-
 from __future__ import annotations
 
 from typing import NamedTuple
 
-from .mysql_db import MySQLConnectionLike, MySQLDatabase
+from .repository_base import BaseJdrRepository
 from .sql_utils import row_tuple, sql_int
 
 
@@ -48,23 +46,9 @@ class QuetePersonnage(NamedTuple):
     id_campagne: int
 
 
-class JdrListRepository:
-    """Requêtes de liste (jointures lecture seule)."""
-
-    def __init__(self, db: MySQLDatabase) -> None:
-        self._db = db
-
-    def _connection(self) -> MySQLConnectionLike:
-        conn = self._db.connect(quiet=True)
-        if conn is None:
-            raise RuntimeError("Could not connect to MySQL.")
-        return conn
-
+class JdrListRepository(BaseJdrRepository):
     def list_toutes_campagnes(self) -> list[CampagneDetail]:
-        """Toutes les campagnes, avec date de création."""
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
+        with self._session() as (_conn, cur):
             cur.execute(
                 """
                 SELECT id, nom, maitre_du_jeu, date_creation
@@ -84,17 +68,11 @@ class JdrListRepository:
                     )
                 )
             return out
-        finally:
-            cur.close()
-            conn.close()
 
     def list_personnages_par_campagne(
         self, id_campagne: int
     ) -> list[PersonnageAvecCampagne]:
-        """Personnages d'une campagne (jointure ``personnage`` ⇢ ``campagne``)."""
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
+        with self._session() as (_conn, cur):
             cur.execute(
                 """
                 SELECT p.id, p.nom, p.classe, p.niveau, p.points_de_vie,
@@ -121,15 +99,9 @@ class JdrListRepository:
                     )
                 )
             return out
-        finally:
-            cur.close()
-            conn.close()
 
     def list_quetes_par_campagne(self, id_campagne: int) -> list[QueteCampagne]:
-        """Toutes les quêtes d'une campagne (titre, description, statut)."""
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
+        with self._session() as (_conn, cur):
             cur.execute(
                 """
                 SELECT id, titre, description, statut, id_campagne
@@ -152,15 +124,9 @@ class JdrListRepository:
                     )
                 )
             return out
-        finally:
-            cur.close()
-            conn.close()
 
     def list_personnages_par_quete(self, id_quete: int) -> list[PersonnageQuete]:
-        """Personnages inscrits à une quête (``participation`` ⇢ ``personnage``)."""
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
+        with self._session() as (_conn, cur):
             cur.execute(
                 """
                 SELECT p.id, p.nom, p.classe, p.niveau, p.points_de_vie
@@ -184,15 +150,9 @@ class JdrListRepository:
                     )
                 )
             return out
-        finally:
-            cur.close()
-            conn.close()
 
     def list_quetes_par_personnage(self, id_personnage: int) -> list[QuetePersonnage]:
-        """Quêtes d'un personnage via ``participation`` ⇢ ``quete``."""
-        conn = self._connection()
-        cur = conn.cursor()
-        try:
+        with self._session() as (_conn, cur):
             cur.execute(
                 """
                 SELECT q.id, q.titre, q.statut, q.id_campagne
@@ -215,6 +175,3 @@ class JdrListRepository:
                     )
                 )
             return out
-        finally:
-            cur.close()
-            conn.close()

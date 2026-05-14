@@ -10,7 +10,7 @@ Les **messages du shell et de la CLI** — aide, erreurs, invites — ainsi que 
 |---------|------|
 | **CLI** | Entrée via [Cyclopts](application/cli.md) : shell par défaut, `db-ping` pour tester MySQL. |
 | **Shell** | REPL `jdr>` : [création, listes, complétion et invites](application/shell.md) branchées sur la base. |
-| **Données** | [Schéma relationnel](database/schema.md) et [modules d’accès](database/modules.md) — notamment `JdrRepository` et `JdrListRepository`. |
+| **Données** | [Schéma relationnel](database/schema.md) et [modules d’accès](database/modules.md) — `BaseJdrRepository`, `JdrRepository` et `JdrListRepository`. |
 
 ## Par où commencer
 
@@ -32,6 +32,7 @@ flowchart TB
   end
   subgraph data["Paquet database"]
     MY[MySQLDatabase]
+    BR[BaseJdrRepository]
     JW[JdrRepository]
     JL[JdrListRepository]
   end
@@ -43,7 +44,8 @@ flowchart TB
   DIS --> JW
   DIS --> JL
   CMP --> JW
-  JW --> MY
-  JL --> MY
+  JW --> BR
+  JL --> BR
+  BR --> MY
   MY --> DB
 ```
