@@ -47,6 +47,92 @@ class QuetePersonnage(NamedTuple):
 
 
 class JdrListRepository(BaseJdrRepository):
+    def export_database_as_dicts(self) -> dict[str, list[dict[str, object]]]:
+        with self._session() as (_conn, cur):
+            cur.execute(
+                """
+                SELECT id, nom, maitre_du_jeu, date_creation
+                FROM campagne
+                ORDER BY id
+                """
+            )
+            campagne: list[dict[str, object]] = []
+            for raw in cur.fetchall():
+                t = row_tuple(raw)
+                campagne.append(
+                    {
+                        "id": sql_int(t[0]),
+                        "nom": str(t[1]),
+                        "maitre_du_jeu": str(t[2]),
+                        "date_creation": t[3],
+                    }
+                )
+
+            cur.execute(
+                """
+                SELECT id, nom, classe, niveau, points_de_vie, id_campagne
+                FROM personnage
+                ORDER BY id
+                """
+            )
+            personnage: list[dict[str, object]] = []
+            for raw in cur.fetchall():
+                t = row_tuple(raw)
+                personnage.append(
+                    {
+                        "id": sql_int(t[0]),
+                        "nom": str(t[1]),
+                        "classe": str(t[2]),
+                        "niveau": sql_int(t[3]),
+                        "points_de_vie": sql_int(t[4]),
+                        "id_campagne": sql_int(t[5]),
+                    }
+                )
+
+            cur.execute(
+                """
+                SELECT id, titre, description, statut, id_campagne
+                FROM quete
+                ORDER BY id
+                """
+            )
+            quete: list[dict[str, object]] = []
+            for raw in cur.fetchall():
+                t = row_tuple(raw)
+                quete.append(
+                    {
+                        "id": sql_int(t[0]),
+                        "titre": str(t[1]),
+                        "description": str(t[2]),
+                        "statut": str(t[3]),
+                        "id_campagne": sql_int(t[4]),
+                    }
+                )
+
+            cur.execute(
+                """
+                SELECT id_personnage, id_quete
+                FROM participation
+                ORDER BY id_personnage, id_quete
+                """
+            )
+            participation: list[dict[str, object]] = []
+            for raw in cur.fetchall():
+                t = row_tuple(raw)
+                participation.append(
+                    {
+                        "id_personnage": sql_int(t[0]),
+                        "id_quete": sql_int(t[1]),
+                    }
+                )
+
+            return {
+                "campagne": campagne,
+                "personnage": personnage,
+                "quete": quete,
+                "participation": participation,
+            }
+
     def list_toutes_campagnes(self) -> list[CampagneDetail]:
         with self._session() as (_conn, cur):
             cur.execute(

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
+from pathlib import Path
 
 import mysql.connector
 from tabulate import tabulate
@@ -30,6 +32,9 @@ Commands (domain order: campaign → character / quest → participation):
   quest list <campaign_name>
   quest characters <quest_id>
   character quests <character_id>
+
+  export [path]
+    Dump all tables to JSON (stdout if path is omitted).
 
   Campaigns are picked by exact name; you may still pass a numeric campaign id.
   If several campaigns share the same name, you will be asked for the dungeon master.
@@ -234,6 +239,25 @@ def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -
         return True
 
     try:
+        if root == "export":
+            if len(tokens) > 2:
+                _usage("Usage: export [path]")
+                return True
+            data = lists.export_database_as_dicts()
+            text = json.dumps(data, indent=2, ensure_ascii=False, default=str)
+            if len(tokens) == 1:
+                print(text)
+                return True
+            out_path = Path(tokens[1]).expanduser()
+            try:
+                out_path.parent.mkdir(parents=True, exist_ok=True)
+                out_path.write_text(text, encoding="utf-8")
+            except OSError as err:
+                print(f"Could not write file: {err}")
+                return True
+            print(f"Exported to {out_path.resolve()}.")
+            return True
+
         if root == "campaign" and len(tokens) >= 2 and tokens[1].lower() == "list":
             if len(tokens) != 2:
                 _usage("Usage: campaign list")
