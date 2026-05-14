@@ -4,18 +4,18 @@
 
 ```mermaid
 flowchart TB
-  subgraph entry["Entrée"]
+  subgraph entry [Entrée]
     MAIN["main.py — Cyclopts App"]
   end
 
-  subgraph shell["Paquet shell"]
+  subgraph shell [Paquet shell]
     REPL[repl.py]
     PAR[parser.py]
     CMD["commands.py — dispatch"]
     CMP[completer.py]
   end
 
-  subgraph db["Paquet database"]
+  subgraph db [Paquet database]
     CFG[config.py]
     MYSQL[mysql_db.py]
     JRW[JdrRepository]
@@ -25,7 +25,7 @@ flowchart TB
 
   DB[(MySQL)]
 
-  MAIN -->|default · shell| REPL
+  MAIN -->|"default · shell"| REPL
   MAIN -->|db-ping| MYSQL
   REPL --> PAR
   REPL --> CMD
@@ -34,7 +34,7 @@ flowchart TB
   CMD --> JRW
   CMD --> JRL
   CMP --> JRW
-  CFG -.->|DB_* via dotenv| MYSQL
+  CFG -.->|"DB_* via dotenv"| MYSQL
   JRW --> MYSQL
   JRL --> MYSQL
   JRW --> SQLU
