@@ -9,7 +9,7 @@ from pathlib import Path
 import mysql.connector
 from tabulate import tabulate
 
-from database import JdrListRepository, JdrRepository
+from database import JdrImportValidationError, JdrListRepository, JdrRepository
 
 HELP_TEXT = """
 Commands (domain order: campaign → character / quest → participation):
@@ -35,6 +35,9 @@ Commands (domain order: campaign → character / quest → participation):
 
   export [path]
     Dump all tables to JSON (stdout if path is omitted).
+
+  import <path>
+    Replace all database rows with a JSON export file (schema validated first).
 
   Campaigns are picked by exact name; you may still pass a numeric campaign id.
   If several campaigns share the same name, you will be asked for the dungeon master.
@@ -256,6 +259,36 @@ def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -
                 print(f"Could not write file: {err}")
                 return True
             print(f"Exported to {out_path.resolve()}.")
+            return True
+
+        if root == "import":
+            if len(tokens) != 2:
+                _usage("Usage: import <path>")
+                return True
+            in_path = Path(tokens[1]).expanduser()
+            if not in_path.is_file():
+                print(f"File not found: {in_path}")
+                return True
+            try:
+                raw = json.loads(in_path.read_text(encoding="utf-8"))
+            except OSError as err:
+                print(f"Could not read file: {err}")
+                return True
+            except json.JSONDecodeError as err:
+                print(f"Invalid JSON: {err}")
+                return True
+            try:
+                counts = lists.import_database_from_dicts(raw)
+            except JdrImportValidationError as err:
+                print(f"Invalid export schema: {err}")
+                return True
+            print(
+                "Import complete: "
+                f"{counts['campagne']} campaign(s), "
+                f"{counts['personnage']} character(s), "
+                f"{counts['quete']} quest(s), "
+                f"{counts['participation']} participation(s)."
+            )
             return True
 
         if root == "campaign" and len(tokens) >= 2 and tokens[1].lower() == "list":

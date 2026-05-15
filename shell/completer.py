@@ -14,6 +14,7 @@ _ROOTS = (
     "quit",
     "clear",
     "export",
+    "import",
     "campaign",
     "character",
     "quest",
@@ -139,7 +140,7 @@ class JdrShellCompleter(Completer):
 
         root = words[0].lower()
 
-        if root in ("help", "exit", "quit", "clear", "export"):
+        if root in ("help", "exit", "quit", "clear", "export", "import"):
             return
 
         if root == "campaign":

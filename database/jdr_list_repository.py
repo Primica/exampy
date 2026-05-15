@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from typing import NamedTuple
 
+import mysql.connector
+
+from .jdr_json_schema import validate_jdr_export_payload
 from .repository_base import BaseJdrRepository
 from .sql_utils import row_tuple, sql_int
 
@@ -132,6 +135,90 @@ class JdrListRepository(BaseJdrRepository):
                 "quete": quete,
                 "participation": participation,
             }
+
+    def import_database_from_dicts(self, data: object) -> dict[str, int]:
+        payload = validate_jdr_export_payload(data)
+        counts = {k: len(payload[k]) for k in payload}
+        with self._session() as (conn, cur):
+            try:
+                cur.execute("SET FOREIGN_KEY_CHECKS = 0")
+                cur.execute("DELETE FROM participation")
+                cur.execute("DELETE FROM personnage")
+                cur.execute("DELETE FROM quete")
+                cur.execute("DELETE FROM campagne")
+
+                for row in payload["campagne"]:
+                    cur.execute(
+                        """
+                        INSERT INTO campagne (id, nom, maitre_du_jeu, date_creation)
+                        VALUES (%s, %s, %s, %s)
+                        """,
+                        (
+                            row["id"],
+                            row["nom"],
+                            row["maitre_du_jeu"],
+                            row["date_creation"],
+                        ),
+                    )
+                max_c = max(
+                    (sql_int(row["id"]) for row in payload["campagne"]), default=0
+                )
+                cur.execute("ALTER TABLE campagne AUTO_INCREMENT = %s", (max_c + 1,))
+
+                for row in payload["personnage"]:
+                    cur.execute(
+                        """
+                        INSERT INTO personnage
+                            (id, nom, classe, niveau, points_de_vie, id_campagne)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        """,
+                        (
+                            row["id"],
+                            row["nom"],
+                            row["classe"],
+                            row["niveau"],
+                            row["points_de_vie"],
+                            row["id_campagne"],
+                        ),
+                    )
+                max_p = max(
+                    (sql_int(row["id"]) for row in payload["personnage"]), default=0
+                )
+                cur.execute("ALTER TABLE personnage AUTO_INCREMENT = %s", (max_p + 1,))
+
+                for row in payload["quete"]:
+                    cur.execute(
+                        """
+                        INSERT INTO quete
+                            (id, titre, description, statut, id_campagne)
+                        VALUES (%s, %s, %s, %s, %s)
+                        """,
+                        (
+                            row["id"],
+                            row["titre"],
+                            row["description"],
+                            row["statut"],
+                            row["id_campagne"],
+                        ),
+                    )
+                max_q = max((sql_int(row["id"]) for row in payload["quete"]), default=0)
+                cur.execute("ALTER TABLE quete AUTO_INCREMENT = %s", (max_q + 1,))
+
+                for row in payload["participation"]:
+                    cur.execute(
+                        """
+                        INSERT INTO participation (id_personnage, id_quete)
+                        VALUES (%s, %s)
+                        """,
+                        (row["id_personnage"], row["id_quete"]),
+                    )
+
+                cur.execute("SET FOREIGN_KEY_CHECKS = 1")
+                conn.commit()
+            except mysql.connector.Error:
+                conn.rollback()
+                raise
+        return counts
 
     def list_toutes_campagnes(self) -> list[CampagneDetail]:
         with self._session() as (_conn, cur):
