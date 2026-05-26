@@ -73,6 +73,118 @@ def _prompt_int(label: str) -> int:
             print("Value must be an integer.")
 
 
+def _ensure_command_tokens(
+    tokens: list[str],
+    *,
+    expected_len: int,
+    usage: str,
+    prompts: list[tuple[str, bool]],
+) -> list[str] | None:
+    t = list(tokens)
+    if len(t) > expected_len:
+        _usage(usage)
+        return None
+    while len(t) < expected_len:
+        prompt_index = len(t) - 2
+        label, as_int = prompts[prompt_index]
+        if as_int:
+            t.append(str(_prompt_int(label)))
+        else:
+            t.append(_prompt_non_empty(label))
+    return t
+
+
+def _ensure_campaign_create(tokens: list[str]) -> list[str] | None:
+    return _ensure_command_tokens(
+        tokens,
+        expected_len=4,
+        usage="Usage: campaign create <name> <dungeon_master>",
+        prompts=[("Campaign name", False), ("Dungeon master", False)],
+    )
+
+
+def _ensure_character_add(tokens: list[str]) -> list[str] | None:
+    return _ensure_command_tokens(
+        tokens,
+        expected_len=7,
+        usage="Usage: character add <name> <class> <level> <hit_points> <campaign_name>",
+        prompts=[
+            ("Character name", False),
+            ("Class", False),
+            ("Level", True),
+            ("Hit points", True),
+            ("Campaign name or id", False),
+        ],
+    )
+
+
+def _ensure_quest_create(tokens: list[str]) -> list[str] | None:
+    return _ensure_command_tokens(
+        tokens,
+        expected_len=6,
+        usage="Usage: quest create <title> <description> <status> <campaign_name>",
+        prompts=[
+            ("Quest title", False),
+            ("Description", False),
+            ("Status", False),
+            ("Campaign name or id", False),
+        ],
+    )
+
+
+def _ensure_participation_add(tokens: list[str]) -> list[str] | None:
+    return _ensure_command_tokens(
+        tokens,
+        expected_len=4,
+        usage="Usage: participation add <character_id> <quest_id>",
+        prompts=[("Character id", True), ("Quest id", True)],
+    )
+
+
+def _ensure_character_list(tokens: list[str]) -> list[str] | None:
+    return _ensure_command_tokens(
+        tokens,
+        expected_len=3,
+        usage="Usage: character list <campaign_name>",
+        prompts=[("Campaign name or id", False)],
+    )
+
+
+def _ensure_quest_list(tokens: list[str]) -> list[str] | None:
+    return _ensure_command_tokens(
+        tokens,
+        expected_len=3,
+        usage="Usage: quest list <campaign_name>",
+        prompts=[("Campaign name or id", False)],
+    )
+
+
+def _ensure_character_quests(tokens: list[str]) -> list[str] | None:
+    return _ensure_command_tokens(
+        tokens,
+        expected_len=3,
+        usage="Usage: character quests <character_id>",
+        prompts=[("Character id", True)],
+    )
+
+
+def _ensure_quest_characters(tokens: list[str]) -> list[str] | None:
+    return _ensure_command_tokens(
+        tokens,
+        expected_len=3,
+        usage="Usage: quest characters <quest_id>",
+        prompts=[("Quest id", True)],
+    )
+
+
+def _parse_int_arg(raw: str, error_message: str) -> int | None:
+    try:
+        return int(raw)
+    except ValueError:
+        _usage(error_message)
+        return None
+
+
 def _resolve_campagne_id(repo: JdrRepository, raw: str) -> int | None:
     t = raw.strip()
     if t.isdigit():
@@ -116,110 +228,6 @@ def _print_table(headers: list[str], rows: list[list[object]]) -> None:
         print("(no rows)")
         return
     print(tabulate(rows, headers=headers, tablefmt="github"))
-
-
-def _ensure_campaign_create(tokens: list[str]) -> list[str] | None:
-    t = list(tokens)
-    if len(t) > 4:
-        _usage("Usage: campaign create <name> <dungeon_master>")
-        return None
-    while len(t) < 4:
-        if len(t) <= 2:
-            t.append(_prompt_non_empty("Campaign name"))
-        elif len(t) == 3:
-            t.append(_prompt_non_empty("Dungeon master"))
-    return t
-
-
-def _ensure_character_add(tokens: list[str]) -> list[str] | None:
-    t = list(tokens)
-    if len(t) > 7:
-        _usage(
-            "Usage: character add <name> <class> <level> <hit_points> <campaign_name>"
-        )
-        return None
-    while len(t) < 7:
-        if len(t) <= 2:
-            t.append(_prompt_non_empty("Character name"))
-        elif len(t) == 3:
-            t.append(_prompt_non_empty("Class"))
-        elif len(t) == 4:
-            t.append(str(_prompt_int("Level")))
-        elif len(t) == 5:
-            t.append(str(_prompt_int("Hit points")))
-        elif len(t) == 6:
-            t.append(_prompt_non_empty("Campaign name or id"))
-    return t
-
-
-def _ensure_quest_create(tokens: list[str]) -> list[str] | None:
-    t = list(tokens)
-    if len(t) > 6:
-        _usage("Usage: quest create <title> <description> <status> <campaign_name>")
-        return None
-    while len(t) < 6:
-        if len(t) <= 2:
-            t.append(_prompt_non_empty("Quest title"))
-        elif len(t) == 3:
-            t.append(_prompt_non_empty("Description"))
-        elif len(t) == 4:
-            t.append(_prompt_non_empty("Status"))
-        elif len(t) == 5:
-            t.append(_prompt_non_empty("Campaign name or id"))
-    return t
-
-
-def _ensure_participation_add(tokens: list[str]) -> list[str] | None:
-    t = list(tokens)
-    if len(t) > 4:
-        _usage("Usage: participation add <character_id> <quest_id>")
-        return None
-    while len(t) < 4:
-        if len(t) <= 2:
-            t.append(str(_prompt_int("Character id")))
-        elif len(t) == 3:
-            t.append(str(_prompt_int("Quest id")))
-    return t
-
-
-def _ensure_character_list(tokens: list[str]) -> list[str] | None:
-    t = list(tokens)
-    if len(t) > 3:
-        _usage("Usage: character list <campaign_name>")
-        return None
-    while len(t) < 3:
-        t.append(_prompt_non_empty("Campaign name or id"))
-    return t
-
-
-def _ensure_quest_list(tokens: list[str]) -> list[str] | None:
-    t = list(tokens)
-    if len(t) > 3:
-        _usage("Usage: quest list <campaign_name>")
-        return None
-    while len(t) < 3:
-        t.append(_prompt_non_empty("Campaign name or id"))
-    return t
-
-
-def _ensure_character_quests(tokens: list[str]) -> list[str] | None:
-    t = list(tokens)
-    if len(t) > 3:
-        _usage("Usage: character quests <character_id>")
-        return None
-    while len(t) < 3:
-        t.append(str(_prompt_int("Character id")))
-    return t
-
-
-def _ensure_quest_characters(tokens: list[str]) -> list[str] | None:
-    t = list(tokens)
-    if len(t) > 3:
-        _usage("Usage: quest characters <quest_id>")
-        return None
-    while len(t) < 3:
-        t.append(str(_prompt_int("Quest id")))
-    return t
 
 
 def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -> bool:
@@ -339,10 +347,8 @@ def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -
             filled = _ensure_character_quests(tokens)
             if filled is None:
                 return True
-            try:
-                id_p = int(filled[2])
-            except ValueError:
-                _usage("character_id must be an integer.")
+            id_p = _parse_int_arg(filled[2], "character_id must be an integer.")
+            if id_p is None:
                 return True
             data = lists.list_quetes_par_personnage(id_p)
             _print_table(
@@ -372,10 +378,8 @@ def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -
             filled = _ensure_quest_characters(tokens)
             if filled is None:
                 return True
-            try:
-                id_q = int(filled[2])
-            except ValueError:
-                _usage("quest_id must be an integer.")
+            id_q = _parse_int_arg(filled[2], "quest_id must be an integer.")
+            if id_q is None:
                 return True
             data = lists.list_personnages_par_quete(id_q)
             _print_table(
@@ -401,11 +405,11 @@ def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -
             if filled is None:
                 return True
             _, _, nom, classe, niveau_s, pv_s, camp_s = filled
-            try:
-                niveau = int(niveau_s)
-                pv = int(pv_s)
-            except ValueError:
-                _usage("level and hit_points must be integers.")
+            niveau = _parse_int_arg(niveau_s, "level and hit_points must be integers.")
+            if niveau is None:
+                return True
+            pv = _parse_int_arg(pv_s, "level and hit_points must be integers.")
+            if pv is None:
                 return True
             id_campagne = _resolve_campagne_id(repo, camp_s)
             if id_campagne is None:
@@ -431,11 +435,11 @@ def dispatch(repo: JdrRepository, lists: JdrListRepository, tokens: list[str]) -
             if filled is None:
                 return True
             _, _, p_s, q_s = filled
-            try:
-                id_p = int(p_s)
-                id_q = int(q_s)
-            except ValueError:
-                _usage("character_id and quest_id must be integers.")
+            id_p = _parse_int_arg(p_s, "character_id and quest_id must be integers.")
+            if id_p is None:
+                return True
+            id_q = _parse_int_arg(q_s, "character_id and quest_id must be integers.")
+            if id_q is None:
                 return True
             repo.inscrire_participation(id_p, id_q)
             print("Participation recorded.")
