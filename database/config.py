@@ -24,8 +24,8 @@ class DatabaseSettings:
     @classmethod
     def from_env(cls) -> "DatabaseSettings":
         return cls(
-            host=getenv_required("DB_HOST"),
-            user=getenv_required("DB_USER"),
-            password=getenv_required("DB_PASSWORD"),
-            database=getenv_required("DB_NAME"),
+            host=getenv_required("MYSQL_HOST"),
+            user=getenv_required("MYSQL_USER"),
+            password=getenv_required("MYSQL_PASSWORD"),
+            database=getenv_required("MYSQL_DB"),
         )
